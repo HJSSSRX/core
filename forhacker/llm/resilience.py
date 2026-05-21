@@ -22,7 +22,7 @@ class ResilienceWrapper:
                        tools: list[dict[str, Any]] | None = None, **kwargs) -> LLMResponse:
         if time.monotonic() < self._circuit_open_until:
             raise RuntimeError("Circuit breaker open — too many failures")
-        last_exc = None
+        last_exc: Exception | None = None
         for attempt in range(self._max_retries):
             try:
                 resp = await asyncio.wait_for(
@@ -31,7 +31,7 @@ class ResilienceWrapper:
                 )
                 self._consecutive_failures = 0
                 return resp
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 last_exc = TimeoutError(f"LLM call timed out ({self._timeout}s)")
             except Exception as e:
                 last_exc = e

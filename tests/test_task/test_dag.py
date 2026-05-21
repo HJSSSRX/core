@@ -1,5 +1,4 @@
-import pytest
-from forhacker.task.dag import DAG, TaskNode, AddTaskResult
+from forhacker.task.dag import DAG, AddTaskResult, TaskNode
 
 
 def make_node(task_id: str, deps: list[str] | None = None) -> TaskNode:

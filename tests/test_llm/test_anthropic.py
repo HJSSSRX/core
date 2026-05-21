@@ -1,6 +1,7 @@
 import pytest
-from forhacker.llm.backend import Message, LLMResponse
+
 from forhacker.llm.anthropic import AnthropicBackend
+from forhacker.llm.backend import Message
 
 
 def test_anthropic_backend_model_name():

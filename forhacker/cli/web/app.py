@@ -25,9 +25,9 @@ PAGE_HTML = """<!DOCTYPE html>
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return PAGE_HTML
+    return HTMLResponse(PAGE_HTML)
 
 
 @app.get("/case/{case_id}", response_class=HTMLResponse)
 async def case_overview(case_id: str):
-    return PAGE_HTML.replace("No active case", f"Case: {case_id}")
+    return HTMLResponse(PAGE_HTML.replace("No active case", f"Case: {case_id}"))

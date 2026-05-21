@@ -1,4 +1,5 @@
 import pytest
+
 from forhacker.plugin.base import BasePlugin, Tool
 from forhacker.plugin.manager import PluginManager
 from forhacker.task.capability import CapabilityRegistry

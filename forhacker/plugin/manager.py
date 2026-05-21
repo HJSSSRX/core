@@ -1,4 +1,5 @@
 import logging
+
 from forhacker.plugin.base import BasePlugin
 from forhacker.task.capability import CapabilityRegistry
 

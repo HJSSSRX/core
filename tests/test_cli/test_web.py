@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from forhacker.cli.web.app import app
 
 client = TestClient(app)

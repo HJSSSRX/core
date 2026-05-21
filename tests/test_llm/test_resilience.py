@@ -1,4 +1,3 @@
-import pytest
 from forhacker.llm.resilience import ResilienceWrapper
 
 

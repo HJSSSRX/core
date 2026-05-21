@@ -12,7 +12,7 @@ def check_conflicts(shared_dir: Path) -> list[Path]:
     return conflicts
 
 
-def resolve_conflict(conflict_path: Path, operator: str):
+def resolve_conflict(conflict_path: Path, operator: str) -> None:
     """Rename conflict file to .resolved-by-<operator> to mark resolution."""
     stem = conflict_path.name.split(".sync-conflict-")[0]
     suffix = conflict_path.suffix

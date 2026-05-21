@@ -1,4 +1,4 @@
-from forhacker.data.models import Base, Case, Task, Finding, EvidenceIndex, Agent
+from forhacker.data.models import Agent, Case, EvidenceIndex, Finding
 
 
 def test_case_table_exists():

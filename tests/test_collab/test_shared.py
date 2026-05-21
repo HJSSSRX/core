@@ -1,5 +1,4 @@
-import pytest
-from forhacker.collab.shared import write_finding, read_findings, write_dag_checkpoint, read_dag_checkpoint
+from forhacker.collab.shared import read_dag_checkpoint, read_findings, write_dag_checkpoint, write_finding
 
 
 def test_write_and_read_finding(tmp_shared_dir):

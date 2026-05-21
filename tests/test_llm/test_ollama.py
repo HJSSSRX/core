@@ -1,4 +1,3 @@
-import pytest
 from forhacker.llm.ollama import OllamaBackend
 
 

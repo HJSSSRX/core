@@ -1,5 +1,6 @@
 import pytest
-from forhacker.llm.backend import Message, LLMResponse
+
+from forhacker.llm.backend import Message
 from forhacker.llm.openai import OpenAIBackend
 
 

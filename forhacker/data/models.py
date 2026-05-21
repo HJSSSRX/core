@@ -1,5 +1,6 @@
 import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, Text, JSON
+
+from sqlalchemy import JSON, BigInteger, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase
 
 

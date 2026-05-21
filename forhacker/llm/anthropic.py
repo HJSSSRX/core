@@ -60,7 +60,7 @@ class AnthropicBackend(LLMBackend):
 
         response = await self._client.messages.create(
             model=self._model,
-            messages=converted_msgs,
+            messages=converted_msgs,  # type: ignore[arg-type]
             **kwargs_anthropic,
             **kwargs,
         )

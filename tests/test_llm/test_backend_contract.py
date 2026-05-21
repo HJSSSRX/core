@@ -3,8 +3,7 @@
 If this gate fails after 2 REFACTOR iterations, STOP. The LLMBackend
 interface must be redesigned before proceeding to implementation tasks.
 """
-import pytest
-from forhacker.llm.backend import LLMBackend, Message, LLMResponse
+from forhacker.llm.backend import LLMBackend, LLMResponse, Message
 
 
 def test_message_dataclass_matches_openai_convention():

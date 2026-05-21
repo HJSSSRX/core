@@ -1,9 +1,10 @@
 import click
+
 from forhacker.cli.commands.case import case_group
-from forhacker.cli.commands.plugin import plugin_group
-from forhacker.cli.commands.meta import meta_group
-from forhacker.cli.commands.kb import kb_group
 from forhacker.cli.commands.collab import collab_group
+from forhacker.cli.commands.kb import kb_group
+from forhacker.cli.commands.meta import meta_group
+from forhacker.cli.commands.plugin import plugin_group
 
 
 @click.group()

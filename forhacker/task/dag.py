@@ -22,7 +22,7 @@ class TaskNode:
 
 
 class DAG:
-    def __init__(self):
+    def __init__(self) -> None:
         self.tasks: dict[str, TaskNode] = {}
 
     def add_task(self, node: TaskNode) -> AddTaskResult:

@@ -1,5 +1,5 @@
-from forhacker.meta.sources import DEFAULT_SOURCES
 from forhacker.meta.evaluator import Evaluator, Proposal
+from forhacker.meta.sources import DEFAULT_SOURCES
 
 
 class MetaAgent:

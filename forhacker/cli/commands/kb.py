@@ -1,5 +1,6 @@
 import click
 
+
 @click.group()
 def kb_group():
     """Knowledge base (backend deferred to Phase 6)."""

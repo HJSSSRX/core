@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+
 from forhacker.cli.main import cli
 
 

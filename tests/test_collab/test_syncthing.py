@@ -1,5 +1,5 @@
+
 from forhacker.collab.syncthing import check_conflicts, resolve_conflict
-from pathlib import Path
 
 
 def test_check_conflicts_no_conflicts(tmp_shared_dir):

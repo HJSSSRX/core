@@ -1,5 +1,5 @@
-from forhacker.task.sub_agent import SubAgentContext, SubAgentResult, SubAgentLifecycle
 from forhacker.plugin.base import Tool
+from forhacker.task.sub_agent import SubAgentContext, SubAgentLifecycle, SubAgentResult
 
 
 def test_sub_agent_context_fields():

@@ -1,11 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from forhacker.data.models import Base
 
 _engine = None
 _session_factory = None
 
 
-async def init_db(database_url: str = "postgresql+asyncpg://localhost/forhacker"):
+async def init_db(database_url: str = "postgresql+asyncpg://localhost/forhacker") -> None:
     global _engine, _session_factory
     _engine = create_async_engine(database_url, echo=False)
     _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
@@ -19,7 +20,7 @@ async def get_session() -> AsyncSession:
     return _session_factory()
 
 
-async def close_db():
+async def close_db() -> None:
     global _engine
     if _engine:
         await _engine.dispose()

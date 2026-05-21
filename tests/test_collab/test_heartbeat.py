@@ -1,4 +1,4 @@
-from forhacker.collab.shared import write_heartbeat, check_heartbeat
+from forhacker.collab.shared import check_heartbeat, write_heartbeat
 
 
 def test_heartbeat_write_and_check(tmp_path):

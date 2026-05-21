@@ -1,7 +1,9 @@
 import asyncio
+
 import pytest
-from forhacker.bus.message_bus import MessageBus
+
 from forhacker.bus.in_process import InProcessBus
+from forhacker.bus.message_bus import MessageBus
 
 
 def test_cannot_instantiate_message_bus_abc():

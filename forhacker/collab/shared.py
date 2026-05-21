@@ -1,7 +1,8 @@
+import os
 from pathlib import Path
 from typing import Any
+
 import yaml
-import os
 
 SCHEMA_VERSION = 1
 

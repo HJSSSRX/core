@@ -20,7 +20,7 @@ class OllamaBackend(LLMBackend):
     async def complete(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> LLMResponse:
         fmt = [{"role": m.role, "content": m.content} for m in messages]
         response = await self._client.chat.completions.create(
-            model=self._model, messages=fmt, tools=tools or None, **kwargs
+            model=self._model, messages=fmt, tools=tools or None, **kwargs  # type: ignore[arg-type]
         )
         choice = response.choices[0]
         return LLMResponse(

@@ -1,5 +1,6 @@
 import click
 
+
 @click.group()
 def meta_group():
     """MetaAgent controls."""

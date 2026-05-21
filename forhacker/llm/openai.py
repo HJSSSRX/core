@@ -21,8 +21,8 @@ class OpenAIBackend(LLMBackend):
     async def complete(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> LLMResponse:
         response = await self._client.chat.completions.create(
             model=self._model,
-            messages=self._messages_to_openai_format(messages),
-            tools=tools or None,
+            messages=self._messages_to_openai_format(messages),  # type: ignore[arg-type]
+            tools=tools or None,  # type: ignore[arg-type]
             **kwargs,
         )
         choice = response.choices[0]
@@ -34,14 +34,14 @@ class OpenAIBackend(LLMBackend):
             tool_calls=[tc.model_dump() for tc in choice.message.tool_calls] if choice.message.tool_calls else None,
         )
 
-    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:
+    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:  # type: ignore[override]
         stream = await self._client.chat.completions.create(
             model=self._model,
-            messages=self._messages_to_openai_format(messages),
-            tools=tools or None,
-            stream=True,
+            messages=self._messages_to_openai_format(messages),  # type: ignore[arg-type]
+            tools=tools or None,  # type: ignore[arg-type]
+            stream=True,  # type: ignore[call-overload]
             **kwargs,
         )
-        async for chunk in stream:
+        async for chunk in stream:  # type: ignore[union-attr]
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content

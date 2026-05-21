@@ -1,5 +1,6 @@
 import click
 
+
 @click.group()
 def collab_group():
     """Collaboration tools."""

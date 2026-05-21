@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
+
 import yaml
-from forhacker.task.dag import DAG, TaskNode, AddTaskResult
+
+from forhacker.task.dag import DAG, AddTaskResult, TaskNode
 
 
 class TaskEngine:
