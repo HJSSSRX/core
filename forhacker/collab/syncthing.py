@@ -18,3 +18,31 @@ def resolve_conflict(conflict_path: Path, operator: str) -> None:
     suffix = conflict_path.suffix
     resolved = conflict_path.with_name(f"{stem}.resolved-by-{operator}{suffix}")
     conflict_path.rename(resolved)
+
+
+class SyncthingHealth:
+    """Check Syncthing health via its REST API (default: http://localhost:8384)."""
+
+    def __init__(self, api_url: str = "http://localhost:8384"):
+        self._api_url = api_url
+
+    async def check(self) -> dict:
+        """Query Syncthing REST API for connection and sync status."""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"{self._api_url}/rest/system/status")
+                data = resp.json()
+                return {
+                    "status": "ok",
+                    "api_accessible": True,
+                    "connected_devices": data.get("connections", {}).get("total", 0),
+                    "pending_items": data.get("folderSummary", {}).get("needTotalItems", 0),
+                }
+        except Exception:
+            return {
+                "status": "offline",
+                "api_accessible": False,
+                "connected_devices": 0,
+                "pending_items": 0,
+            }

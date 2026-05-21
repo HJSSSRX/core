@@ -2,6 +2,15 @@
 {% block content %}
 <h2 style="margin-bottom:1rem">{{ case_id }}</h2>
 
+{% if tasks_running > 0 %}
+<script>
+    setTimeout(function(){ location.reload(); }, 10000);
+</script>
+<div style="background:#3a2a1a;border:1px solid #d29922;padding:0.5rem 1rem;border-radius:6px;margin-bottom:1rem;font-size:0.85rem;color:var(--yellow)">
+    Auto-refreshing every 10s while tasks are running...
+</div>
+{% endif %}
+
 <!-- Status cards -->
 <div class="grid" style="margin-bottom:2rem">
     <div class="card">
