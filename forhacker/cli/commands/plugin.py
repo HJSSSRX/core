@@ -94,3 +94,108 @@ def install(name: str):
             click.echo("Run: git clone {repo} cells/{name}")
             return
     click.echo(f"Plugin '{name}' not found in marketplace.")
+
+
+PLUGIN_SKELETON = '''"""
+{name} — {description}
+"""
+from forhacker.plugin.base import BasePlugin
+from forhacker.task.capability import Tool
+
+
+class {class_name}(BasePlugin):
+    name = "{name}"
+    version = "0.1.0"
+    domain = "{domain}"
+    risk_levels = {{}}  # TODO: assign LOW|MEDIUM|HIGH per tool
+
+    def register_tools(self) -> list[Tool]:
+        return [
+            Tool(
+                name="{name}_example",
+                description="Example tool — replace with real implementation",
+                domain=self.domain,
+                risk_level="LOW",
+            ),
+        ]
+'''
+
+TUTORIAL_SKELETON = """# {name} — Tutorial
+
+## Quick Start
+
+1. This Cell plugin auto-loads when you run `forhacker case run <case> "<goal>"`
+2. Check that it's loaded: `forhacker plugin list`
+
+## Adding Tools
+
+Edit `plugin.py` and add entries to `register_tools()`:
+
+```python
+Tool(
+    name="your_tool_name",
+    description="What this tool does",
+    domain=self.domain,
+    risk_level="LOW",  # LOW | MEDIUM | HIGH
+)
+```
+
+## Testing
+
+```bash
+# Run from the project root:
+python3 -m pytest tests/
+
+# Run just this Cell's tests:
+python3 -m pytest tests/test_plugin/ -k {name}
+```
+
+## Tool Implementation
+
+Each tool is a Python function or class in this directory.
+
+## Risk Levels
+
+- LOW: Safe to run in Docker (metadata extraction, hash computation, strings)
+- MEDIUM: File parsing, archive extraction, log analysis
+- HIGH: Malware analysis, exploit verification (requires Firecracker microVM, blocks if unavailable)
+
+Default is HIGH for any tool not explicitly registered.
+"""
+
+
+@plugin_group.command()
+@click.argument("name")
+@click.option("--domain", default="", help="Plugin domain (default: derived from name)")
+def create(name: str, domain: str):
+    """Scaffold a new Cell plugin under cells/<name>/."""
+    target = Path("cells") / name
+    if target.exists():
+        click.echo(f"Plugin directory already exists: {target}")
+        return
+
+    domain = domain or name.replace("_", "-")
+    class_name = "".join(part.capitalize() for part in name.replace("-", "_").split("_")) + "Plugin"
+
+    target.mkdir(parents=True, exist_ok=True)
+
+    # plugin.py
+    plugin_content = PLUGIN_SKELETON.format(
+        name=name, domain=domain, class_name=class_name,
+        description=f"Cell plugin: {name}",
+    )
+    (target / "plugin.py").write_text(plugin_content, encoding="utf-8")
+
+    # TUTORIAL.md
+    (target / "TUTORIAL.md").write_text(
+        TUTORIAL_SKELETON.format(name=name), encoding="utf-8"
+    )
+
+    # README.md
+    (target / "README.md").write_text(f"# {name}\n\nCell plugin for ForHacker.\n", encoding="utf-8")
+
+    click.echo(f"Cell plugin '{name}' scaffolded at {target}")
+    click.echo(f"  {target}/plugin.py")
+    click.echo(f"  {target}/TUTORIAL.md")
+    click.echo(f"  {target}/README.md")
+    click.echo(f"\nNext: edit {target}/plugin.py to add your tools, then run 'forhacker plugin list'")
