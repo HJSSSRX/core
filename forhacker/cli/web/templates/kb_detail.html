@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="/kb" style="color:var(--accent);font-size:0.85rem;text-decoration:none">← Back to KB</a>
+
+<h2 style="margin:1rem 0 0.5rem">{{ entry.title }}</h2>
+<div style="font-size:0.8rem;color:#8b949e;margin-bottom:1rem">
+    {% for t in entry.tags %}<span class="badge pending">{{ t }}</span>{% endfor %}
+    <span style="margin-left:0.5rem">Source: {{ entry.source }}</span>
+    <span style="margin-left:0.5rem">Confidence: {{ entry.confidence }}</span>
+    <span style="margin-left:0.5rem">ID: {{ entry.id }}</span>
+    <span style="margin-left:0.5rem">Created: {{ entry.created_at }}</span>
+</div>
+
+<div class="card">
+    <pre style="white-space:pre-wrap;font-family:inherit;font-size:0.9rem;line-height:1.6">{{ entry.content }}</pre>
+</div>
+{% endblock %}

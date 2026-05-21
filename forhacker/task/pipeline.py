@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from forhacker.collab.shared import write_finding
+from forhacker.kb.entry import KBEntry
+from forhacker.kb.store import KBStore
 from forhacker.llm.backend import LLMBackend
 from forhacker.task.capability import CapabilityRegistry
 from forhacker.task.engine import TaskEngine
@@ -34,12 +36,13 @@ class Pipeline:
     """
 
     def __init__(self, case_dir: Path, llm: LLMBackend, registry: CapabilityRegistry,
-                 case_id: str = "default", max_concurrency: int = 3):
+                 case_id: str = "default", max_concurrency: int = 3, kb: KBStore | None = None):
         self._case_dir = case_dir
         self._llm = llm
         self._registry = registry
         self._case_id = case_id
         self._max_concurrency = max_concurrency
+        self._kb = kb
 
         self._engine = TaskEngine(case_dir=case_dir)
         self._supervisor = Supervisor(
@@ -93,6 +96,8 @@ class Pipeline:
                             for f in result.findings:
                                 write_finding(self._case_dir, ctx.task_id, f)
                                 findings.append(f)
+                            if self._kb:
+                                self._ingest_to_kb(ctx.task_id, ctx.goal, result.findings)
                         else:
                             self._engine.update_status(ctx.task_id, "failed")
                             self._supervisor._cascade_block(ctx.task_id)
@@ -118,3 +123,16 @@ class Pipeline:
             completed=completed, failed=failed,
             findings=findings, errors=errors,
         )
+
+    def _ingest_to_kb(self, task_id: str, goal: str, findings: list[dict]) -> None:
+        """Auto-ingest pipeline findings into the knowledge base."""
+        assert self._kb is not None
+        entry = KBEntry(
+            title=f"[{self._case_id}] {goal[:80]}",
+            tags=["auto-ingest", self._case_id, task_id],
+            source=f"case/{self._case_id}",
+            content=f"Task: {task_id}\nGoal: {goal}\n\nFindings:\n"
+                    + "\n".join(f"- {f}" for f in findings),
+            confidence="medium",
+        )
+        self._kb.add(entry)

@@ -1,14 +1,17 @@
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+
+from forhacker.kb.store import KBStore
 
 app = FastAPI(title="ForHacker Dashboard", docs_url=None, redoc_url=None)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 SHARED_DIR = Path("shared")
+KB_DIR = SHARED_DIR / "kb"
 
 
 def _list_cases() -> list[str]:
@@ -57,4 +60,29 @@ async def case_overview(request: Request, case_id: str):
         "tasks_failed": sum(1 for t in tasks if t.get("status") == "failed"),
         "findings": findings,
         "findings_count": len(findings),
+    })
+
+
+@app.get("/kb", response_class=HTMLResponse)
+async def kb_index(request: Request, q: str = Query(default=""), tag: str = Query(default="")):
+    store = KBStore(KB_DIR)
+    entries = store.search(keyword=q, tags=[tag] if tag else None)
+    return templates.TemplateResponse(request, "kb.html", {
+        "request": request,
+        "entries": entries,
+        "query": q,
+        "tag_filter": tag,
+        "total": len(entries),
+    })
+
+
+@app.get("/kb/{entry_id}", response_class=HTMLResponse)
+async def kb_entry(request: Request, entry_id: str):
+    store = KBStore(KB_DIR)
+    entry = store.get(entry_id)
+    if entry is None:
+        return HTMLResponse("<h1>Not Found</h1>", status_code=404)
+    return templates.TemplateResponse(request, "kb_detail.html", {
+        "request": request,
+        "entry": entry,
     })

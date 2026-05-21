@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:1rem">Knowledge Base</h2>
+
+<form style="display:flex;gap:0.5rem;margin-bottom:1.5rem">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search..."
+           style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:0.5rem 0.75rem;border-radius:6px;font-size:0.9rem">
+    <input type="text" name="tag" value="{{ tag_filter }}" placeholder="Tag..."
+           style="width:150px;background:var(--card);border:1px solid var(--border);color:var(--text);padding:0.5rem 0.75rem;border-radius:6px;font-size:0.9rem">
+    <button type="submit" style="background:var(--accent);color:#fff;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;font-size:0.9rem">Search</button>
+</form>
+
+{% if query or tag_filter %}<p style="color:#8b949e;margin-bottom:1rem">{{ total }} result(s)</p>{% endif %}
+
+{% if entries %}
+{% for e in entries %}
+<div class="card">
+    <h2><a href="/kb/{{ e.id }}" style="color:var(--accent);text-decoration:none">{{ e.title }}</a></h2>
+    <div style="font-size:0.8rem;color:#8b949e;margin:0.25rem 0">
+        {% for t in e.tags %}<span class="badge pending">{{ t }}</span>{% endfor %}
+        <span style="margin-left:0.5rem">{{ e.source }}</span>
+    </div>
+    <p style="font-size:0.85rem;margin-top:0.5rem">{{ e.content[:200] }}{% if e.content|length > 200 %}...{% endif %}</p>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">No entries. Run <code>forhacker kb add</code> or run a pipeline to auto-ingest findings.</div>
+{% endif %}
+{% endblock %}
