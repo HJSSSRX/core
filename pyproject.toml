@@ -26,6 +26,9 @@ dev = [
     "mypy>=1.8",
 ]
 
+[project.scripts]
+forhacker = "forhacker.cli.main:cli"
+
 [tool.ruff]
 line-length = 120
 target-version = "py312"
