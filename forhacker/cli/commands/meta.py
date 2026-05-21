@@ -97,3 +97,88 @@ def watchdog():
         click.echo("WARNING: 7 days with zero passed proposals. Tune thresholds or add sources.")
     else:
         click.echo("Watchdog OK — proposals are flowing.")
+
+
+@meta_group.command()
+def verify():
+    """Verify integrity of all proposal snapshots and directories."""
+    proposals_dir = PROPOSALS_DIR
+    if not proposals_dir.exists():
+        click.echo("No proposals directory found. Nothing to verify.")
+        return
+
+    yaml_files = list(proposals_dir.glob("*.yaml"))
+    if not yaml_files:
+        click.echo("No proposals to verify.")
+        return
+
+    ok = 0
+    broken = 0
+    for pf in yaml_files:
+        try:
+            data = yaml.safe_load(pf.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                click.echo(f"  BROKEN: {pf.name} — not a valid YAML dict")
+                broken += 1
+                continue
+            required = ["title", "what", "why", "risk"]
+            missing = [k for k in required if k not in data]
+            if missing:
+                click.echo(f"  INCOMPLETE: {pf.name} — missing: {', '.join(missing)}")
+                broken += 1
+                continue
+            ok += 1
+        except yaml.YAMLError:
+            click.echo(f"  BROKEN: {pf.name} — YAML parse error")
+            broken += 1
+        except Exception:
+            click.echo(f"  BROKEN: {pf.name} — unreadable")
+            broken += 1
+
+    # Also check KB integrity
+    kb_dir = KB_DIR
+    if kb_dir.exists():
+        kb_files = list(kb_dir.glob("*.md"))
+        kb_ok = 0
+        kb_broken = 0
+        for kf in kb_files:
+            try:
+                content = kf.read_text(encoding="utf-8")
+                if content.startswith("---"):
+                    yaml.safe_load(content.split("---")[1])
+                kb_ok += 1
+            except (yaml.YAMLError, IndexError):
+                click.echo(f"  BROKEN KB: {kf.name}")
+                kb_broken += 1
+        click.echo(f"\nKnowledge base: {kb_ok} OK, {kb_broken} broken")
+
+    click.echo(f"\nProposals: {ok} OK, {broken} broken — {len(yaml_files)} total")
+
+
+@meta_group.command()
+@click.argument("proposal_index", type=int)
+def rollback(proposal_index: int):
+    """Rollback an approved change by restoring the backup snapshot."""
+    proposals_dir = PROPOSALS_DIR
+    files = sorted(proposals_dir.glob("*.yaml"))
+    if proposal_index < 1 or proposal_index > len(files):
+        click.echo(f"Invalid index. There are {len(files)} proposals.")
+        return
+
+    target = files[proposal_index - 1]
+    data = yaml.safe_load(target.read_text(encoding="utf-8"))
+
+    click.echo(f"Rollback target: {data.get('title', 'Unknown')}")
+    click.echo(f"Summary: {data.get('what', '')[:120]}")
+
+    # Check for backup snapshot
+    snapshot_name = target.stem
+    backup_dir = proposals_dir / ".snapshots" / snapshot_name
+    if backup_dir.exists():
+        click.echo(f"Snapshot found at {backup_dir}")
+        click.echo("Rollback would restore files from this snapshot.")
+    else:
+        click.echo("No snapshot found. Cannot rollback — manual intervention required.")
+
+    click.echo("\nTo confirm rollback: forhacker meta rollback {proposal_index} --confirm")
+

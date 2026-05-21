@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:1rem">{{ case_id }} — Evidence</h2>
+
+{% if not evidence %}
+<div class="empty">No evidence indexed. Run 'forhacker evidence verify &lt;case-id&gt;' to index evidence files.</div>
+{% else %}
+<div style="color:#8b949e;font-size:0.85rem;margin-bottom:1.5rem">{{ evidence_count }} file(s)</div>
+
+<table>
+    <thead><tr><th>File</th><th>Path</th><th>Size</th><th>Modified</th></tr></thead>
+    <tbody>
+    {% for e in evidence %}
+    <tr>
+        <td><code>{{ e.name }}</code></td>
+        <td style="color:#8b949e;font-size:0.85rem">{{ e.path }}</td>
+        <td>{{ "%.1f KB"|format(e.size / 1024) if e.size > 1024 else e.size ~ " B" }}</td>
+        <td style="font-size:0.8rem">{{ e.mtime }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<div style="margin-top:2rem">
+    <a href="/case/{{ case_id }}" style="color:var(--accent);text-decoration:none;font-size:0.85rem">← Back to case</a>
+</div>
+{% endblock %}

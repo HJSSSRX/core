@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -37,7 +38,45 @@ def _read_findings(case_id: str) -> list[dict]:
         data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
         for item in data.get("findings", []):
             item["task_id"] = f.stem
+            item["_mtime"] = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc).isoformat()
             results.append(item)
+    return results
+
+
+def _read_all_findings() -> list[dict]:
+    """Read findings from all cases, sorted by modification time (newest first)."""
+    all_findings = []
+    for case_id in _list_cases():
+        findings_dir = SHARED_DIR / "cases" / case_id / "findings"
+        if not findings_dir.exists():
+            continue
+        for f in sorted(findings_dir.glob("*.yaml")):
+            mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+            data = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            for item in data.get("findings", []):
+                item["_case_id"] = case_id
+                item["_task_id"] = f.stem
+                item["_mtime"] = mtime.isoformat()
+                all_findings.append(item)
+    all_findings.sort(key=lambda x: x["_mtime"], reverse=True)
+    return all_findings
+
+
+def _list_evidence(case_id: str) -> list[dict]:
+    """List evidence files for a case with size and modification time."""
+    evidence_dir = SHARED_DIR / "cases" / case_id / "evidence"
+    if not evidence_dir.exists():
+        return []
+    results = []
+    for f in sorted(evidence_dir.rglob("*")):
+        if f.is_file():
+            stat = f.stat()
+            results.append({
+                "name": f.name,
+                "path": str(f.relative_to(evidence_dir)),
+                "size": stat.st_size,
+                "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            })
     return results
 
 
@@ -85,4 +124,29 @@ async def kb_entry(request: Request, entry_id: str):
     return templates.TemplateResponse(request, "kb_detail.html", {
         "request": request,
         "entry": entry,
+    })
+
+
+@app.get("/timeline", response_class=HTMLResponse)
+async def timeline(request: Request):
+    """Chronological view of findings across all cases."""
+    findings = _read_all_findings()
+    cases = _list_cases()
+    return templates.TemplateResponse(request, "timeline.html", {
+        "request": request,
+        "findings": findings,
+        "findings_count": len(findings),
+        "cases": cases,
+    })
+
+
+@app.get("/evidence/{case_id}", response_class=HTMLResponse)
+async def evidence_map(request: Request, case_id: str):
+    """Evidence file listing for a case."""
+    evidence = _list_evidence(case_id)
+    return templates.TemplateResponse(request, "evidence.html", {
+        "request": request,
+        "case_id": case_id,
+        "evidence": evidence,
+        "evidence_count": len(evidence),
     })

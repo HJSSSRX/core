@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:1rem">Finding Timeline</h2>
+
+{% if not findings %}
+<div class="empty">No findings yet. Findings will appear here as agents complete tasks.</div>
+{% else %}
+<div style="color:#8b949e;font-size:0.85rem;margin-bottom:1.5rem">{{ findings_count }} finding(s) across all cases</div>
+
+<div style="position:relative;padding-left:2rem;border-left:2px solid var(--border)">
+{% for f in findings %}
+<div style="margin-bottom:1.5rem;position:relative">
+    <div style="position:absolute;left:-2.25rem;top:0.25rem;width:10px;height:10px;border-radius:50%;background:var(--accent)"></div>
+    <div style="color:#8b949e;font-size:0.75rem;margin-bottom:0.25rem">{{ f._mtime }}</div>
+    <div style="font-size:0.8rem;margin-bottom:0.25rem">
+        <span class="badge pending">{{ f._case_id }}</span>
+        <span style="color:#8b949e"> / {{ f._task_id }}</span>
+    </div>
+    <div class="finding">
+        <pre>{{ f | tojson }}</pre>
+    </div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

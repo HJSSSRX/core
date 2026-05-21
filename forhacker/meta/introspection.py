@@ -1,6 +1,16 @@
 import ast
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class PluginInfo:
+    name: str
+    version: str
+    domain: str
+    tool_count: int
 
 
 @dataclass
@@ -12,13 +22,103 @@ class CodeIssue:
     description: str
 
 
-class IntrospectionAgent:
-    """Scans the codebase for code quality issues and improvement opportunities."""
+class PlatformIntrospection(ABC):
+    """Read-only introspection surface for the Platform Optimizer role."""
 
-    def scan(self, root: Path) -> list[CodeIssue]:
+    @abstractmethod
+    def list_registered_plugins(self) -> list[PluginInfo]:
+        ...
+
+    @abstractmethod
+    def get_skill_configurations(self) -> dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def get_recent_metrics(self, window_seconds: float) -> dict[str, Any]:
+        ...
+
+
+class IntrospectionAgent(PlatformIntrospection):
+    """Scans the codebase for code quality issues and collects platform state."""
+
+    def __init__(self, root: Path | None = None) -> None:
+        self._root = root or Path(__file__).resolve().parent.parent
+
+    def list_registered_plugins(self) -> list[PluginInfo]:
+        """Discover plugins by scanning the cells/ directory."""
+        plugins: list[PluginInfo] = []
+        cells_root = self._root.parent / "cells"
+        if not cells_root.exists():
+            return plugins
+        for cell_dir in sorted(cells_root.iterdir()):
+            if not cell_dir.is_dir() or cell_dir.name.startswith("_") or cell_dir.name.startswith("."):
+                continue
+            plugin_file = cell_dir / "plugin.py"
+            if not plugin_file.exists():
+                continue
+            try:
+                tree = ast.parse(plugin_file.read_text(encoding="utf-8"))
+                tool_count = len([
+                    n for n in ast.walk(tree)
+                    if isinstance(n, ast.FunctionDef) and not n.name.startswith("_")
+                ])
+                plugins.append(PluginInfo(
+                    name=cell_dir.name,
+                    version="0.1.0",
+                    domain=cell_dir.name.replace("_", "-"),
+                    tool_count=tool_count,
+                ))
+            except (SyntaxError, UnicodeDecodeError):
+                continue
+        return plugins
+
+    def get_skill_configurations(self) -> dict[str, Any]:
+        """Read skill configurations from the claude config directory."""
+        config: dict[str, Any] = {"skills": [], "hooks": []}
+        config_dirs = [
+            Path.home() / ".claude",
+            self._root.parent / ".claude",
+        ]
+        for base in config_dirs:
+            skills_dir = base / "plugins"
+            if skills_dir.exists():
+                for plugin_dir in skills_dir.iterdir():
+                    if plugin_dir.is_dir():
+                        config["skills"].append(str(plugin_dir))
+            hooks_file = base / "settings.json"
+            if hooks_file.exists():
+                try:
+                    import json
+                    settings = json.loads(hooks_file.read_text(encoding="utf-8"))
+                    config["hooks"] = list(settings.get("hooks", {}).keys())
+                except (json.JSONDecodeError, OSError):
+                    pass
+        return config
+
+    def get_recent_metrics(self, window_seconds: float = 3600.0) -> dict[str, Any]:
+        """Collect recent platform metrics from the filesystem."""
+        metrics: dict[str, Any] = {"test_count": 0, "plugin_count": 0, "kb_entry_count": 0}
+        tests_dir = self._root.parent / "tests"
+        if tests_dir.exists():
+            metrics["test_count"] = len(list(tests_dir.rglob("test_*.py")))
+
+        cells_root = self._root.parent / "cells"
+        if cells_root.exists():
+            metrics["plugin_count"] = len([d for d in cells_root.iterdir()
+                                           if d.is_dir() and (d / "plugin.py").exists()])
+
+        kb_dir = Path("shared") / "kb"
+        if kb_dir.exists():
+            metrics["kb_entry_count"] = len(list(kb_dir.glob("*.md")))
+
+        return metrics
+
+    def scan(self, root: Path | None = None) -> list[CodeIssue]:
+        """Scan Python files for code quality issues."""
+        root = root or self._root
         issues: list[CodeIssue] = []
         for py_file in root.rglob("*.py"):
-            if "__pycache__" in str(py_file):
+            if "__pycache__" in str(py_file) or "tests" in str(py_file):
                 continue
             issues.extend(self._analyze_file(py_file, root))
         return issues
@@ -36,8 +136,7 @@ class IntrospectionAgent:
         rel = str(path.relative_to(root))
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name.startswith("_"):
-                used = self._is_used(tree, node.name)
-                if not used:
+                if not self._is_used(tree, node.name):
                     issues.append(CodeIssue(
                         file=rel, line=node.lineno, severity="LOW",
                         category="unused_code",

@@ -1,4 +1,4 @@
-"""MetaAgent scheduler — periodic scan→evaluate→propose→audit loop."""
+"""MetaAgent scheduler — periodic scan→evaluate→propose→audit→introspect loop."""
 
 import logging
 from datetime import datetime, timezone
@@ -14,7 +14,7 @@ SCAN_INTERVAL_HOURS = 6
 
 
 class MetaScheduler:
-    """Runs the MetaAgent loop: fetch sources → evaluate → file proposals → record audit trail."""
+    """Runs the MetaAgent loop: fetch sources → evaluate → file proposals → introspect → record audit trail."""
 
     def __init__(self, kb_dir: Path, proposals_dir: Path):
         self._agent = MetaAgent()
@@ -25,6 +25,7 @@ class MetaScheduler:
 
     async def scan_once(self) -> dict[str, Any]:
         from forhacker.meta.browser import WebBrowser
+        from forhacker.meta.introspection import IntrospectionAgent
 
         browser = WebBrowser()
         results = await browser.scan_all(self._agent.sources)
@@ -49,6 +50,35 @@ class MetaScheduler:
                 passed += 1
                 self._save_proposal(proposal)
 
+        # Run Platform Optimizer introspection
+        introspector = IntrospectionAgent()
+        code_issues = introspector.scan()
+        plugin_info = introspector.list_registered_plugins()
+        metrics = introspector.get_recent_metrics()
+
+        if code_issues:
+            issues_summary = "\n".join(
+                f"- [{i.severity}] {i.file}:{i.line} — {i.description}"
+                for i in code_issues[:10]
+            )
+            opt_proposal = Proposal(
+                title="[Platform Optimizer] Code quality issues detected",
+                what=f"Introspection found {len(code_issues)} potential issues:\n{issues_summary}",
+                why="Automated code quality scan via AST analysis",
+                impact="Code quality",
+                risk="LOW",
+                requires_coordination=False,
+                relevance_score=0.6,
+                quality_score=0.5,
+            )
+            if self._agent.submit_proposal(opt_proposal):
+                passed += 1
+                self._save_proposal(opt_proposal)
+
+        # Report platform state
+        logger.info("Platform state: %d plugins, %d KB entries, %d test files",
+                     len(plugin_info), metrics.get("kb_entry_count", 0), metrics.get("test_count", 0))
+
         self._agent.evaluator.record_day(candidates=candidates, passed=passed)
         self._last_scan["timestamp"] = datetime.now(timezone.utc).isoformat()
 
@@ -60,6 +90,8 @@ class MetaScheduler:
             "candidates": candidates,
             "passed": passed,
             "pending_proposals": len(self._agent.list_pending()),
+            "introspection_issues": len(code_issues),
+            "plugins_registered": len(plugin_info),
         }
 
     def _save_proposal(self, proposal: Proposal) -> None:
