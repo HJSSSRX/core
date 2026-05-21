@@ -76,5 +76,20 @@ class AnthropicBackend(LLMBackend):
             tool_calls=self._extract_tool_calls(response.content),
         )
 
-    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:
-        raise NotImplementedError("Anthropic streaming not yet implemented")
+    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:  # type: ignore[override]
+        system, converted_msgs = self._convert_messages(messages)
+        kwargs_anthropic: dict[str, Any] = {"max_tokens": kwargs.pop("max_tokens", 4096)}
+        if system:
+            kwargs_anthropic["system"] = system
+        if tools:
+            kwargs_anthropic["tools"] = tools
+
+        async with self._client.messages.stream(
+            model=self._model,
+            messages=converted_msgs,  # type: ignore[arg-type]
+            **kwargs_anthropic,
+            **kwargs,
+        ) as stream:
+            async for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                    yield event.delta.text
