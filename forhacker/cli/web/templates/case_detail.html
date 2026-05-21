@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:1rem">{{ case_id }}</h2>
+
+<!-- Status cards -->
+<div class="grid" style="margin-bottom:2rem">
+    <div class="card">
+        <h2>Tasks</h2>
+        <div class="stat green">{{ tasks_done }}</div>
+        <div style="color:#8b949e;font-size:0.85rem">done</div>
+    </div>
+    <div class="card">
+        <h2>Tasks</h2>
+        <div class="stat yellow">{{ tasks_running }}</div>
+        <div style="color:#8b949e;font-size:0.85rem">running</div>
+    </div>
+    <div class="card">
+        <h2>Tasks</h2>
+        <div class="stat red">{{ tasks_failed }}</div>
+        <div style="color:#8b949e;font-size:0.85rem">failed</div>
+    </div>
+    <div class="card">
+        <h2>Findings</h2>
+        <div class="stat" style="color:var(--accent)">{{ findings_count }}</div>
+        <div style="color:#8b949e;font-size:0.85rem">total</div>
+    </div>
+</div>
+
+<!-- Task list -->
+<h2 style="margin-bottom:0.75rem">Task List</h2>
+{% if tasks %}
+<table>
+    <thead><tr><th>Task ID</th><th>Type</th><th>Status</th><th>Depends On</th></tr></thead>
+    <tbody>
+    {% for t in tasks %}
+    <tr>
+        <td>{{ t.task_id }}</td>
+        <td>{{ t.type }}</td>
+        <td><span class="badge {{ t.status }}">{{ t.status }}</span></td>
+        <td>{{ t.depends_on | join(", ") or "—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty">No tasks found.</div>
+{% endif %}
+
+<!-- Findings -->
+<h2 style="margin:2rem 0 0.75rem">Findings</h2>
+{% if findings %}
+{% for f in findings %}
+<div class="finding">
+    <div style="color:#8b949e;font-size:0.8rem;margin-bottom:0.25rem">{{ f.task_id }}</div>
+    <pre>{{ f | tojson }}</pre>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">No findings yet.</div>
+{% endif %}
+{% endblock %}

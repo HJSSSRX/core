@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:1rem">Cases</h2>
+{% if cases %}
+<div class="grid">
+{% for case in cases %}
+<div class="card">
+    <h2><a href="/case/{{ case }}" style="color:var(--accent);text-decoration:none">{{ case }}</a></h2>
+    <a href="/case/{{ case }}" style="font-size:0.85rem;color:var(--accent)">View details →</a>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">No cases yet. Run <code>forhacker case run &lt;name&gt; "&lt;goal&gt;"</code> to start.</div>
+{% endif %}
+{% endblock %}

@@ -14,4 +14,4 @@ def test_dashboard_root():
 def test_case_overview_empty_state():
     response = client.get("/case/test-case")
     assert response.status_code == 200
-    assert "No active case" in response.text or "test-case" in response.text
+    assert "test-case" in response.text
