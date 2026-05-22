@@ -58,9 +58,8 @@ def list_plugins():
 
     for name in sorted(manager.loaded_plugins):
         click.echo(f"\n{name}")
-        for domain in registry.list_domains():
-            for tool in registry.query(domain=domain):
-                click.echo(f"  {tool.name} [{tool.risk_level}] — {tool.description}")
+        for tool in manager.get_plugin_tools(name):
+            click.echo(f"  {tool.name} [{tool.risk_level}] — {tool.description}")
 
     if manager.degraded_plugins:
         click.echo(f"\nDegraded: {', '.join(manager.degraded_plugins)}")

@@ -20,3 +20,6 @@ cli.add_command(plugin_group, name="plugin")
 cli.add_command(meta_group, name="meta")
 cli.add_command(kb_group, name="kb")
 cli.add_command(collab_group, name="collab")
+
+if __name__ == "__main__":
+    cli()
