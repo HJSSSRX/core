@@ -86,6 +86,37 @@ def test_yara_scan_no_dep():
     assert "yara-python" in result["error"]
 
 
+def test_pe_info_not_found():
+    result = run_pe_info("/nonexistent/file.exe")
+    assert "error" in result
+
+
+def test_pe_info_mz_but_no_pe_sig(tmp_path):
+    f = tmp_path / "fake.exe"
+    # MZ header with PE offset pointing to non-PE data
+    data = bytearray(b"MZ" + b"\x00" * 0x3E)
+    struct.pack_into("<I", data, 0x3C, 0x40)
+    data += b"\x00" * 0x40 + b"XXXX"
+    f.write_bytes(data)
+    result = run_pe_info(str(f))
+    assert "error" in result
+
+
+def test_pe_info_corrupt_header(tmp_path):
+    f = tmp_path / "corrupt.exe"
+    # Truncated file: PE offset at 0x3C but not enough data to unpack
+    f.write_bytes(b"MZ" + b"\x00" * 0x3A)  # 60 bytes < 64 needed
+    result = run_pe_info(str(f))
+    assert "error" in result
+
+
+def test_volatility3_pslist_stub():
+    from cells.forensics_core.plugin import run_volatility3_pslist
+    result = run_volatility3_pslist("memory.dmp")
+    assert "error" in result
+    assert "volatility3" in result["error"]
+
+
 def test_plugin_loads_in_manager():
     registry = CapabilityRegistry()
     manager = PluginManager(registry=registry)
