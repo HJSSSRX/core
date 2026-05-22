@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import yaml
 from fastapi import FastAPI, Query, Request
@@ -176,9 +177,9 @@ def _get_plugin_status() -> dict:
         return {"error": str(e)}
 
 
-def _get_system_status() -> dict:
+def _get_system_status() -> dict[str, Any]:
     """Aggregate full system status."""
-    status = {"plugins": _get_plugin_status()}
+    status: dict[str, Any] = {"plugins": _get_plugin_status()}
 
     kb_dir = SHARED_DIR / "kb"
     status["kb_entries"] = len(list(kb_dir.glob("*.md"))) if kb_dir.exists() else 0

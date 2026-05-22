@@ -162,7 +162,7 @@ class MetaScheduler:
 
         import yaml
         meta_path = snapshot_dir / "snapshot_meta.yaml"
-        meta = {}
+        meta: dict[str, Any] = {}
         if meta_path.exists():
             meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
 
@@ -212,7 +212,7 @@ class MetaScheduler:
         results = []
         for d in sorted(snapshots_dir.iterdir()):
             if d.is_dir():
-                meta = {}
+                meta: dict[str, Any] = {}
                 meta_path = d / "snapshot_meta.yaml"
                 if meta_path.exists():
                     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
