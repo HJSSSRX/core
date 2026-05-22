@@ -82,3 +82,51 @@ def test_parse_iis_log(tmp_path):
 def test_parse_iis_not_found():
     result = run_parse_iis_log("/nonexistent/file")
     assert "error" in result
+
+
+def test_parse_csv_no_headers(tmp_path):
+    f = tmp_path / "empty.csv"
+    f.write_text("")
+    result = run_parse_csv(str(f))
+    assert "error" in result
+
+
+def test_parse_csv_max_rows(tmp_path):
+    f = tmp_path / "many.csv"
+    lines = ["col1,col2"] + [f"a{i},b{i}" for i in range(10)]
+    f.write_text("\n".join(lines))
+    result = run_parse_csv(str(f), max_rows=3)
+    assert result["row_count"] == 3
+
+
+def test_parse_jsonl_empty_lines(tmp_path):
+    f = tmp_path / "gap.jsonl"
+    f.write_text('{"a":1}\n\n{"b":2}\n')
+    result = run_parse_jsonl(str(f))
+    assert result["row_count"] == 2
+
+
+def test_parse_jsonl_max_rows(tmp_path):
+    f = tmp_path / "big.jsonl"
+    lines = [json.dumps({"n": i}) for i in range(10)]
+    f.write_text("\n".join(lines))
+    result = run_parse_jsonl(str(f), max_rows=3)
+    assert result["row_count"] == 3
+
+
+def test_parse_iis_log_max_rows(tmp_path):
+    f = tmp_path / "many_iis.log"
+    f.write_text(
+        "#Fields: date time\n"
+        + "\n".join(f"2026-01-0{i} 12:00:0{i}" for i in range(1, 8))
+    )
+    result = run_parse_iis_log(str(f), max_rows=3)
+    assert result["row_count"] == 3
+
+
+def test_parse_evtx_not_installed(tmp_path):
+    from cells.log_parser.plugin import run_parse_evtx
+    f = tmp_path / "test.evtx"
+    f.write_text("dummy")
+    result = run_parse_evtx(str(f))
+    assert "python-evtx" in result.get("error", "")

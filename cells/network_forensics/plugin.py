@@ -126,7 +126,7 @@ def run_http_header_parse(text: str) -> dict[str, Any]:
 
     # Split headers from body
     parts = text.split("\r\n\r\n", 1)
-    if len(parts) < 1:
+    if len(parts) == 1:
         parts = text.split("\n\n", 1)
     header_block = parts[0]
     body = parts[1] if len(parts) > 1 else ""

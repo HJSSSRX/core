@@ -108,3 +108,65 @@ def test_connection_graph_netstat():
 def test_connection_graph_empty():
     result = run_connection_graph("")
     assert "error" in result
+
+
+def test_pcap_summary_not_found():
+    result = run_pcap_summary("/nonexistent/file.pcap")
+    assert "error" in result
+
+
+def test_pcap_summary_big_endian():
+    # Build a minimal valid PCAP (big-endian)
+    header = bytes.fromhex("A1B2C3D4" "0002" "0004" "00000000" "00000000" "00040000" "00000001")
+    pkt_header = bytes(16)
+    data = header + pkt_header
+    with tempfile.NamedTemporaryFile(suffix=".pcap", delete=False) as f:
+        f.write(data)
+        f.flush()
+        path = f.name
+    result = run_pcap_summary(path)
+    Path(path).unlink(missing_ok=True)
+    assert result["format"].startswith("pcap (big")
+
+
+def test_pcap_summary_nanosecond():
+    # Build a minimal valid nanosecond PCAP (little-endian)
+    header = bytes.fromhex("4D3CB2A1" "0200" "0400" "00000000" "00000000" "00000400" "01000000")
+    pkt_header = bytes(16)
+    data = header + pkt_header
+    with tempfile.NamedTemporaryFile(suffix=".pcap", delete=False) as f:
+        f.write(data)
+        f.flush()
+        path = f.name
+    result = run_pcap_summary(path)
+    Path(path).unlink(missing_ok=True)
+    assert result["format"].startswith("pcap-nanosecond")
+
+
+def test_pcap_summary_unknown_format():
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+        f.write(b"\x00" * 40)
+        f.flush()
+        path = f.name
+    result = run_pcap_summary(path)
+    Path(path).unlink(missing_ok=True)
+    assert result["format"] == "unknown"
+
+
+def test_dns_lookup_invalid_hostname():
+    result = run_dns_lookup("this-hostname-definitely-does-not-exist-12345.invalid")
+    assert "error" in result or result["resolved_count"] == 0
+
+
+def test_http_header_parse_unix_newlines():
+    text = "GET /api HTTP/1.1\nHost: example.com\nAccept: */*\n\nbody"
+    result = run_http_header_parse(text)
+    assert result["request_line"] == "GET /api HTTP/1.1"
+    assert result["headers"]["host"] == "example.com"
+    assert result["body_size"] == 4
+
+
+def test_connection_graph_no_match():
+    text = "Active Internet connections\nProto Recv-Q Send-Q Local Address Foreign Address State\nsome random text"
+    result = run_connection_graph(text)
+    assert result["connection_count"] == 0
