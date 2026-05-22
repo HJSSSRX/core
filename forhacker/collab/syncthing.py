@@ -46,3 +46,17 @@ class SyncthingHealth:
                 "connected_devices": 0,
                 "pending_items": 0,
             }
+
+    async def rescan(self, folder_id: str = "shared") -> dict:
+        """Trigger Syncthing to rescan a folder for changes."""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    f"{self._api_url}/rest/db/scan",
+                    params={"folder": folder_id},
+                )
+                return {"status": "ok" if resp.status_code == 200 else "error",
+                        "message": f"Rescan triggered for '{folder_id}'"}
+        except Exception as e:
+            return {"status": "offline", "message": str(e)}

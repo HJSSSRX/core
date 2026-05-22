@@ -142,3 +142,15 @@ def syncthing():
     click.echo(f"  API: {result['api_accessible']}")
     click.echo(f"  Connected devices: {result['connected_devices']}")
     click.echo(f"  Pending: {result['pending_items']}")
+
+
+@collab_group.command()
+@click.option("--folder", default="shared", help="Syncthing folder ID to rescan")
+def sync(folder: str):
+    """Trigger Syncthing to rescan the shared folder."""
+    import asyncio
+    health = SyncthingHealth()
+    result = asyncio.run(health.rescan(folder_id=folder))
+    click.echo(f"Sync rescan: {result['status']}")
+    if result.get("message"):
+        click.echo(f"  {result['message']}")

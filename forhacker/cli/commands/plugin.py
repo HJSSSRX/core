@@ -90,8 +90,17 @@ def install(name: str):
             if target.exists():
                 click.echo(f"Plugin '{name}' already installed at {target}")
                 return
-            click.echo(f"Clone {repo} into cells/{name}")
-            click.echo("Run: git clone {repo} cells/{name}")
+            import subprocess
+            click.echo(f"Cloning {repo} into cells/{name} ...")
+            result = subprocess.run(
+                ["git", "clone", repo, str(target)],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                click.echo(f"Plugin '{name}' installed successfully.")
+            else:
+                click.echo(f"Clone failed: {result.stderr}")
+                click.echo(f"Manual install: git clone {repo} cells/{name}")
             return
     click.echo(f"Plugin '{name}' not found in marketplace.")
 
