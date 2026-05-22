@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}System Status — ForHacker{% endblock %}
+
+{% block content %}
+<h2>System Status</h2>
+
+<!-- Summary Cards -->
+<div style="display:flex; gap:1rem; margin-bottom:2rem; flex-wrap:wrap;">
+    <div class="stat-card">
+        <div class="stat-value">{{ status.plugins.plugin_count }}</div>
+        <div class="stat-label">Plugins</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.plugins.tool_count }}</div>
+        <div class="stat-label">Tools</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.cases }}</div>
+        <div class="stat-label">Cases</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.kb_entries }}</div>
+        <div class="stat-label">KB Entries</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ status.proposals }}</div>
+        <div class="stat-label">Proposals</div>
+    </div>
+</div>
+
+<!-- Plugin Details -->
+<h3>Cell Plugins</h3>
+{% if status.plugins.plugins %}
+<table>
+    <thead>
+        <tr>
+            <th>Plugin</th>
+            <th>Tools</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for name, pdata in status.plugins.plugins.items() %}
+    <tr>
+        <td><strong>{{ name }}</strong></td>
+        <td>{{ pdata.count }}</td>
+        <td>
+            {% for tool in pdata.tools %}
+            <span class="tool-badge" title="{{ tool.domain }}">{{ tool.name }}</span>
+            {% endfor %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No plugins loaded.</p>
+{% endif %}
+
+{% if status.plugins.degraded %}
+<p style="color:var(--danger);">Degraded: {{ status.plugins.degraded | join(', ') }}</p>
+{% endif %}
+
+<style>
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    min-width: 100px;
+}
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+.tool-badge {
+    display: inline-block;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 2px;
+    font-size: 0.8rem;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--surface); }
+</style>
+{% endblock %}

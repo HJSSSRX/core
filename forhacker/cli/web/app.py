@@ -6,6 +6,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from forhacker.cli.commands.plugin import _discover_plugins
 from forhacker.kb.store import KBStore
 
 app = FastAPI(title="ForHacker Dashboard", docs_url=None, redoc_url=None)
@@ -149,4 +150,60 @@ async def evidence_map(request: Request, case_id: str):
         "case_id": case_id,
         "evidence": evidence,
         "evidence_count": len(evidence),
+    })
+
+
+def _get_plugin_status() -> dict:
+    """Collect plugin and system status for the dashboard."""
+    try:
+        manager = _discover_plugins()
+        plugins_data = {}
+        total_tools = 0
+        for name in manager.loaded_plugins:
+            tools = manager.get_plugin_tools(name)
+            total_tools += len(tools)
+            plugins_data[name] = {
+                "tools": [{"name": t.name, "domain": t.domain, "risk": t.risk_level} for t in tools],
+                "count": len(tools),
+            }
+        return {
+            "plugin_count": len(manager.loaded_plugins),
+            "tool_count": total_tools,
+            "degraded": manager.degraded_plugins,
+            "plugins": plugins_data,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _get_system_status() -> dict:
+    """Aggregate full system status."""
+    status = {"plugins": _get_plugin_status()}
+
+    kb_dir = SHARED_DIR / "kb"
+    status["kb_entries"] = len(list(kb_dir.glob("*.md"))) if kb_dir.exists() else 0
+
+    cases_dir = SHARED_DIR / "cases"
+    status["cases"] = len([d for d in cases_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]) \
+        if cases_dir.exists() else 0
+
+    proposals_dir = SHARED_DIR / "meta" / "proposals"
+    status["proposals"] = len(list(proposals_dir.glob("*.yaml"))) if proposals_dir.exists() else 0
+
+    return status
+
+
+@app.get("/api/status")
+async def api_status():
+    """JSON API for system status."""
+    return _get_system_status()
+
+
+@app.get("/status", response_class=HTMLResponse)
+async def status_page(request: Request):
+    """System status dashboard page."""
+    status = _get_system_status()
+    return templates.TemplateResponse(request, "status.html", {
+        "request": request,
+        "status": status,
     })
