@@ -73,7 +73,12 @@ def review(proposal_index: int, approve: bool, reject: bool):
     if approve:
         click.echo(f"Approved: {data.get('title', '')}")
         click.echo(f"Action: {data.get('what', '')}")
+        # Create backup snapshot before executing
+        scheduler = MetaScheduler(KB_DIR, PROPOSALS_DIR)
+        snap_id = target.stem
+        scheduler.create_snapshot(snap_id, target_dirs=[KB_DIR])
         target.unlink()
+        click.echo(f"Snapshot saved: {snap_id}")
         click.echo("Proposal approved and removed from queue.")
     elif reject:
         click.echo(f"Rejected: {data.get('title', '')}")
@@ -156,29 +161,56 @@ def verify():
 
 
 @meta_group.command()
-@click.argument("proposal_index", type=int)
-def rollback(proposal_index: int):
-    """Rollback an approved change by restoring the backup snapshot."""
-    proposals_dir = PROPOSALS_DIR
-    files = sorted(proposals_dir.glob("*.yaml"))
-    if proposal_index < 1 or proposal_index > len(files):
-        click.echo(f"Invalid index. There are {len(files)} proposals.")
+@click.argument("change_id")
+@click.option("--confirm", is_flag=True, help="Confirm the rollback operation")
+def rollback(change_id: str, confirm: bool):
+    """Rollback an approved change by restoring its backup snapshot.
+
+    CHANGE_ID: the proposal filename stem (e.g. from meta review output).
+    Use 'meta snapshots' to list available snapshots.
+    """
+    scheduler = MetaScheduler(KB_DIR, PROPOSALS_DIR)
+    snapshot_dir = PROPOSALS_DIR / ".snapshots" / change_id
+
+    if not snapshot_dir.exists():
+        click.echo(f"No snapshot found for '{change_id}'.")
+        click.echo("Available snapshots:")
+        for s in scheduler.list_snapshots():
+            click.echo(f"  {s['change_id']} ({s['created_at']})")
         return
 
-    target = files[proposal_index - 1]
-    data = yaml.safe_load(target.read_text(encoding="utf-8"))
+    import yaml
+    meta_path = snapshot_dir / "snapshot_meta.yaml"
+    meta = {}
+    if meta_path.exists():
+        meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
 
-    click.echo(f"Rollback target: {data.get('title', 'Unknown')}")
-    click.echo(f"Summary: {data.get('what', '')[:120]}")
+    click.echo(f"Change ID: {change_id}")
+    click.echo(f"Created: {meta.get('created_at', 'unknown')}")
+    click.echo(f"Targets: {', '.join(meta.get('target_dirs', []))}")
 
-    # Check for backup snapshot
-    snapshot_name = target.stem
-    backup_dir = proposals_dir / ".snapshots" / snapshot_name
-    if backup_dir.exists():
-        click.echo(f"Snapshot found at {backup_dir}")
-        click.echo("Rollback would restore files from this snapshot.")
-    else:
-        click.echo("No snapshot found. Cannot rollback — manual intervention required.")
+    if not confirm:
+        click.echo("\nRun with --confirm to execute the rollback.")
+        return
 
-    click.echo("\nTo confirm rollback: forhacker meta rollback {proposal_index} --confirm")
+    result = scheduler.restore_snapshot(change_id)
+    click.echo(f"\nRollback: {result['status']}")
+    click.echo(result.get("message", ""))
+    if result.get("failed"):
+        for f in result["failed"]:
+            click.echo(f"  FAILED: {f['path']} — {f['error']}")
+
+
+@meta_group.command()
+def snapshots():
+    """List all backup snapshots available for rollback."""
+    scheduler = MetaScheduler(KB_DIR, PROPOSALS_DIR)
+    items = scheduler.list_snapshots()
+    if not items:
+        click.echo("No snapshots available.")
+        return
+    for s in items:
+        click.echo(f"\n  Change ID: {s['change_id']}")
+        click.echo(f"  Created: {s['created_at']}")
+        click.echo(f"  Targets: {', '.join(s['target_dirs']) or '(none)'}")
 
