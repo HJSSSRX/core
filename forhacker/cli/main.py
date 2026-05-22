@@ -6,6 +6,7 @@ from forhacker.cli.commands.evidence import evidence_group
 from forhacker.cli.commands.kb import kb_group
 from forhacker.cli.commands.meta import meta_group
 from forhacker.cli.commands.plugin import plugin_group
+from forhacker.cli.commands.system import system_group
 
 
 @click.group()
@@ -20,6 +21,7 @@ cli.add_command(plugin_group, name="plugin")
 cli.add_command(meta_group, name="meta")
 cli.add_command(kb_group, name="kb")
 cli.add_command(collab_group, name="collab")
+cli.add_command(system_group, name="system")
 
 if __name__ == "__main__":
     cli()

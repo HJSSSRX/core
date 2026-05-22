@@ -126,3 +126,23 @@ def test_plugin_create_already_exists():
     created = Path("cells") / "test_existing"
     if created.exists():
         shutil.rmtree(created)
+
+
+def test_system_help():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["system", "--help"])
+    assert result.exit_code == 0
+
+
+def test_system_status():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["system", "status"])
+    assert result.exit_code == 0
+    assert "Plugins" in result.output
+
+
+def test_system_env():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["system", "env"])
+    assert result.exit_code == 0
+    assert "Python" in result.output
