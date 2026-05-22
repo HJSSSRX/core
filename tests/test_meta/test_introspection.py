@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from forhacker.meta.introspection import IntrospectionAgent
+from forhacker.meta.introspection import IntrospectionAgent, PlatformIntrospection
 
 
 def test_introspection_scans_python_files():
@@ -13,7 +13,6 @@ def test_introspection_scans_python_files():
         )
         agent = IntrospectionAgent()
         issues = agent.scan(root)
-        # _unused_helper is actually called by public_api, so it shouldn't be flagged
         unused = [i for i in issues if i.category == "unused_code"]
         assert len(unused) == 0
 
@@ -55,3 +54,32 @@ def test_introspection_flags_truly_unused_private():
         issues = agent.scan(root)
         unused = [i for i in issues if i.category == "unused_code" and "_unused" in i.description]
         assert len(unused) == 1
+
+
+def test_introspection_implements_abc():
+    agent = IntrospectionAgent()
+    assert isinstance(agent, PlatformIntrospection)
+
+
+def test_list_registered_plugins_empty(tmp_path):
+    agent = IntrospectionAgent(root=tmp_path)
+    plugins = agent.list_registered_plugins()
+    assert isinstance(plugins, list)
+
+
+def test_get_skill_configurations():
+    agent = IntrospectionAgent()
+    config = agent.get_skill_configurations()
+    assert isinstance(config, dict)
+    assert "skills" in config
+    assert "hooks" in config
+
+
+def test_get_recent_metrics():
+    agent = IntrospectionAgent()
+    metrics = agent.get_recent_metrics()
+    assert isinstance(metrics, dict)
+    assert "test_count" in metrics
+    assert "plugin_count" in metrics
+    assert "kb_entry_count" in metrics
+
