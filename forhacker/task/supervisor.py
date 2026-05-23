@@ -1,8 +1,12 @@
+import logging
+
 from forhacker.llm.backend import LLMBackend, Message
 from forhacker.task.capability import CapabilityRegistry
 from forhacker.task.dag import TaskNode
 from forhacker.task.engine import TaskEngine
 from forhacker.task.sub_agent import SubAgentContext, SubAgentResult
+
+logger = logging.getLogger(__name__)
 
 DECOMPOSE_PROMPT = """You are a forensics task planner. Decompose the given goal into a task DAG.
 
@@ -27,44 +31,128 @@ tasks:
     depends_on: [acquire-memory]
 ```"""
 
+INTERPRET_PROMPT = """You are a digital forensics analyst. Interpret the tool execution results.
+
+Task: {task_id} / Goal: {goal}
+Evidence: {evidence_paths}
+Previous: {dependency_findings}
+
+Tool results:
+{tool_results}
+
+For each finding: what was discovered (cite tool output), why it matters forensically.
+Confidence: verified (tool output proves it) | inferred (reasonable) | unknown (insufficient data).
+Be concise."""
+
 
 class SubAgentExecutor:
-    """Executes a SubAgentContext by calling tools and optionally using an LLM for reasoning."""
+    """Executes a SubAgentContext: runs tool functions, then optionally interprets with LLM.
+
+    Flow:
+    1. Execute all tools with handlers, collecting raw output
+    2. If LLM is available, send raw output to LLM for forensic interpretation
+    3. Return findings with both raw tool data and (optionally) LLM interpretation
+    """
 
     def __init__(self, llm: LLMBackend | None = None):
         self._llm = llm
 
     async def execute(self, ctx: SubAgentContext) -> SubAgentResult:
-        findings: list[dict] = []
-        artifacts: list[str] = []
+        if ctx.goal == "synthesis":
+            return self._synthesize(ctx)
 
+        if not ctx.available_tools:
+            return SubAgentResult(
+                findings=[{"error": "No tools available for this task"}],
+                confidence="LOW", artifacts=[], status="failed", error="No tools available",
+            )
+
+        # Phase 1: Execute tool functions with real I/O
+        tool_results: list[dict] = []
         for tool in ctx.available_tools:
-            if self._llm is not None:
-                result = await self._run_with_llm(tool, ctx)
-            else:
-                result = {"tool": tool.name, "status": "no_llm_available", "output": None}
-            findings.append({"tool": tool.name, "domain": tool.domain, "result": result})
-            artifacts.append(f"finding/{tool.name}.yaml")
+            result = self._run_tool(tool, ctx.evidence_paths)
+            tool_results.append(result)
+
+        succeeded = sum(1 for r in tool_results if r.get("status") == "ok")
+        tool_names_run = [r["tool"] for r in tool_results]
+
+        # Phase 2: LLM interpretation of raw results
+        llm_interpretation = None
+        if self._llm is not None:
+            try:
+                llm_interpretation = await self._interpret_with_llm(ctx, tool_results)
+            except Exception as e:
+                logger.warning("LLM interpretation failed for %s: %s", ctx.task_id, e)
+
+        finding: dict = {
+            "task_id": ctx.task_id,
+            "goal": ctx.goal,
+            "tools_executed": tool_names_run,
+            "tool_results": tool_results,
+        }
+        if llm_interpretation:
+            finding["llm_interpretation"] = llm_interpretation
 
         return SubAgentResult(
-            findings=findings,
-            confidence="MEDIUM",
-            artifacts=artifacts,
+            findings=[finding],
+            confidence="MEDIUM" if succeeded > 0 else "LOW",
+            artifacts=[f"finding/{ctx.task_id}.yaml"],
             status="done",
         )
 
-    async def _run_with_llm(self, tool: object, ctx: SubAgentContext) -> dict:
-        prompt = (
-            f"You are using the tool '{getattr(tool, 'name', 'unknown')}' "
-            f"({getattr(tool, 'description', '')}) in domain '{getattr(tool, 'domain', '')}'.\n"
-            f"Task goal: {ctx.goal}\n"
-            f"Evidence paths: {ctx.evidence_paths}\n"
-            f"Previous findings: {ctx.dependency_findings}\n\n"
-            f"Describe what analysis you would perform using this tool and what results you expect."
+    def _run_tool(self, tool, evidence_paths: list[str]) -> dict:
+        """Execute a single tool's handler function with evidence input."""
+        result: dict = {"tool": tool.name}
+        if tool.handler is None:
+            result["status"] = "no_handler"
+            result["note"] = f"No handler function for tool '{tool.name}'"
+            return result
+        target = evidence_paths[0] if evidence_paths else ""
+        try:
+            output = tool.handler(target)
+            result["status"] = "ok"
+            result["output"] = output
+        except Exception as e:
+            result["status"] = "error"
+            result["error"] = str(e)
+        return result
+
+    def _synthesize(self, ctx: SubAgentContext) -> SubAgentResult:
+        dep_summaries = []
+        for f in ctx.dependency_findings:
+            if isinstance(f, dict):
+                dep_summaries.append({
+                    "task_id": f.get("task_id", ""),
+                    "tools_used": f.get("tools_executed", []),
+                    "has_llm": "llm_interpretation" in f,
+                })
+        return SubAgentResult(
+            findings=[{
+                "task_id": ctx.task_id,
+                "type": "synthesis",
+                "upstream_tasks": dep_summaries,
+                "summary": f"Aggregated {len(ctx.dependency_findings)} upstream findings.",
+            }],
+            confidence="MEDIUM",
+            artifacts=[f"finding/{ctx.task_id}.yaml"],
+            status="done",
         )
+
+    async def _interpret_with_llm(self, ctx: SubAgentContext, tool_results: list[dict]) -> dict:
         assert self._llm is not None
+        results_text = "\n\n".join(
+            f"Tool: {r['tool']}\nStatus: {r.get('status')}\nOutput: {r.get('output', r.get('error', r.get('note')))}"
+            for r in tool_results
+        )
+        prompt = INTERPRET_PROMPT.format(
+            task_id=ctx.task_id,
+            goal=ctx.goal,
+            evidence_paths=", ".join(ctx.evidence_paths) if ctx.evidence_paths else "none",
+            dependency_findings=ctx.dependency_findings or "none",
+            tool_results=results_text,
+        )
         response = await self._llm.complete([Message(role="user", content=prompt)])
-        return {"tool": getattr(tool, "name", ""), "analysis": response.text, "model": response.model}
+        return {"model": response.model, "text": response.text}
 
 
 class Supervisor:
@@ -129,16 +217,21 @@ class Supervisor:
         except Exception as e:
             return {"status": "error", "message": f"LLM decomposition failed: {e}"}
 
-    def get_pending_contexts(self) -> list[SubAgentContext]:
+    def get_pending_contexts(self, evidence_paths: list[str] | None = None) -> list[SubAgentContext]:
+        if evidence_paths is None:
+            evidence_paths = []
         ready = self.engine.get_ready_tasks()
         contexts = []
         for node in ready:
-            tools = self.registry.query(domain=node.type.split("_")[0])
+            if node.type == "synthesis":
+                tools = []  # synthesis aggregates findings, no tools needed
+            else:
+                tools = self.registry.query(domain=node.type.split("_")[0])
             ctx = SubAgentContext(
                 task_id=node.task_id,
                 case_id=self.case_id,
                 goal=node.type,
-                evidence_paths=[],
+                evidence_paths=list(evidence_paths),
                 available_tools=tools,
                 dependency_findings=[],
             )

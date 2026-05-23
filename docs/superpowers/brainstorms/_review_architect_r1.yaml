@@ -1,0 +1,62 @@
+findings:
+  - severity: IMPORTANT
+    location: "Task 6 (BasePlugin ABC + PluginManager) and Task 7 (CapabilityRegistry) — cross-package type dependency"
+    problem: "task/ 和 plugin/ 之间存在双向依赖: task/capability.py 从 plugin/base.py 导入 Tool, plugin/manager.py 从 task/capability.py 导入 CapabilityRegistry, 形成 task ↔ plugin 循环"
+    evidence: |
+      Spec 第 286 行明确声明依赖方向应为 "plugin/ → task/capability.py (plugins depend on core contracts)"。
+      但实际实现中, task/capability.py 的 `register(tool: Tool)` 和 `query(...) -> list[Tool]` 都引用了 plugin/base.py 中定义的 Tool 类型。
+      同样, task/sub_agent.py 的 SubAgentContext.available_tools 也是 `list[Tool]`。
+      这导致 task/ 和 plugin/ 互相导入, 违反了 "task/ owns the registry" 的声明 — 如果 task/ 真正拥有注册表,
+      那么注册表中流通的核心类型 (Tool) 也应该由 task/ 定义或放在一个共享的类型模块中。
+    suggestion: |
+      将 Tool 和 MCPResource 数据类从 plugin/base.py 移到一个中立的类型模块 (如 forhacker/_types.py 或 forhacker/task/types.py),
+      让 task/ 和 plugin/ 都从该模块导入。或者反过来, 将 Tool 定义在 task/ 中, 让 plugin/base.py 从 task/ 导入。
+      这样可以打破循环, 并使依赖方向与 spec 声明一致: plugin/ → task/。
+    reviewer_role: architect
+
+  - severity: IMPORTANT
+    location: "Task 11 (TaskEngine) and Task 13 (collab/shared.py) — dag_state.yaml 双写路径"
+    problem: "dag_state.yaml 存在两个独立的写入路径: task/engine.py 的 _write_through() 和 collab/shared.py 的 write_dag_checkpoint(), 二者对同一文件写入无协调机制, 存在并发写覆盖风险"
+    evidence: |
+      TaskEngine._write_through() (plan 第 1831-1846 行): 直接用 yaml.dump 写入 "schema_version: 1" + task 列表,
+      使用 temp-file + os.replace 实现原子写入。
+      collab/shared.py 的 write_dag_checkpoint() (plan 第 2113-2115 行): 委托给 _write_yaml_atomic(),
+      同样写入 schema_version + tasks, 同样使用原子写入。
+      两个模块各自实现了几乎相同的序列化逻辑, 但格式细节 (字段集合、键名) 可能随时间漂移。
+      当 Supervisor 通过 TaskEngine 写入, 而 collab/ 模块同时通过 write_dag_checkpoint 写入时,
+      后写入者会覆盖先写入者, 没有任何锁或合并逻辑。
+    suggestion: |
+      TaskEngine 不应直接实现 dag_state.yaml 的序列化, 应改为调用 collab/shared.py 的 write_dag_checkpoint() 和 read_dag_checkpoint()。
+      让 collab/shared.py 成为 dag_state.yaml 格式的唯一权威源 (single source of truth)。
+      或者, 如果 TaskEngine 需要性能上的独立性, 至少应该抽取一个共享的 dag_io.py 模块,
+      让 engine 和 shared 都通过它读写, 并在模块级加一个 asyncio.Lock 保护写操作。
+    reviewer_role: architect
+
+  - severity: NIT
+    location: "Task 7 (CapabilityRegistry) — query() 方法的 tags 参数"
+    problem: "CapabilityRegistry.query(domain, tags) 接受 tags 参数但在实现中完全忽略, Tool 数据类也没有 tags 字段, 导致接口承诺了它无法履行的过滤能力"
+    evidence: |
+      plan 第 1083-1085 行测试: `test_query_by_tags` 明确断言 "no tag matching yet; Tool has no tags field in base spec"。
+      query() 方法签名 (第 1127 行) 接受 `tags: list[str]`, 但实现 (第 1129 行) 仅返回 domain 下所有工具, 完全未使用 tags。
+      这导致 API 的调用者误以为可以按标签过滤, 但实际上做不到。
+    suggestion: |
+      选项 A: 给 Tool 数据类增加 `tags: list[str]` 字段, 并在 query() 中实现标签过滤逻辑。
+      选项 B: 从 query() 签名中移除 tags 参数, 待标签需求明确时再加回来。
+      推荐选项 B, 以保持 YAGNI 原则。
+    reviewer_role: architect
+
+  - severity: NIT
+    location: "Task 19 (PlatformIntrospection) — 抽象接口无实现、无消费者"
+    problem: "PlatformIntrospection ABC 被定义但没有任何具体实现, 也没有任何模块导入或使用它, 是一个孤立的抽象"
+    evidence: |
+      Plan 第 2758-2772 行定义了 PlatformIntrospection ABC (三个抽象方法: list_registered_plugins, get_skill_configurations, get_recent_metrics)。
+      测试仅验证无法实例化 ABC (标准 ABC 测试), 但没有针对任何具体实现的测试。
+      没有其他任务创建 PlatformIntrospection 的实现类, 也没有任务将其实例注入到 MetaAgent 或其他消费者中。
+      File Map 中 forhacker/meta/introspection.py 被标记为 "Create | 4", 但仅创建了 ABC。
+    suggestion: |
+      要么在本 Phase 内提供一个最小实现 (例如 InProcessIntrospection 返回空列表/空字典作为桩实现),
+      并将其注入到 MetaAgent 构造函数中; 要么将 PlatformIntrospection 的实现推迟到后续 Phase,
+      并在本任务中明确标注为 "interface-only, implementation deferred to Phase N"。
+    reviewer_role: architect
+
+NO_BLOCKING_ISSUES: false

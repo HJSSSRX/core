@@ -1,0 +1,178 @@
+reviewer_role: edge-cases
+findings:
+  - severity: BLOCKING
+    location: "Task 11: TaskEngine with write-through persistence — `_write_through()` only called in `add_task()`"
+    problem: Task status transitions (pending→running→done→failed) are never persisted to disk.
+    evidence: |
+      The TaskEngine._write_through() method is only invoked inside add_task(). When the Supervisor or
+      any external code modifies a TaskNode status (e.g. engine.dag.tasks["T-001"].status = "running"),
+      the change lives entirely in memory. If the process crashes or restarts, _load_or_create() reads
+      the last persisted state — in which every task is still "pending" — and all in-flight progress is
+      lost. The test at line 1780-1784 explicitly acknowledges this gap ("orphan detection (handled by
+      Supervisor, not engine)") but the Supervisor has no mechanism to persist status either.
+    suggestion: |
+      Add a `set_task_status(task_id, status)` method to TaskEngine that updates the node and calls
+      _write_through() atomically. All status transitions must go through this method. Alternatively,
+      make the DAG nodes observable and auto-persist on any status change.
+
+  - severity: BLOCKING
+    location: "Task 14: Supervisor agent logic — `_cascade_block()` at line 2273-2276"
+    problem: Cascade failure only blocks direct dependents; transitive dependents across 2+ levels remain in "pending" state.
+    evidence: |
+      The method iterates over all tasks and blocks any whose depends_on list contains the failed task_id.
+      Consider T-001 → T-002 → T-003. When T-001 fails, T-002 is set to "blocked". But T-003 depends on
+      T-002 and T-002 is now "blocked" (not "done"), so get_ready_tasks() skips it. However, T-003 stays
+      "pending" forever — it is never marked "blocked", never executed, and the DAG never terminates.
+      This is a routine scenario for any multi-step investigation DAG.
+    suggestion: |
+      Make `_cascade_block` recursive or BFS: after marking a node "blocked", recursively block all
+      nodes that depend on it. Add a test with a 3-level chain (T-0→T-1→T-2, fail T-0, assert T-1 and
+      T-2 both become "blocked").
+
+  - severity: BLOCKING
+    location: "Task 11: TaskEngine + Task 14: Supervisor — `get_ready_tasks()` selects pending tasks but does not claim them"
+    problem: No atomic "claim" transition from pending to running; two concurrent Supervisors can dispatch the same task twice.
+    evidence: |
+      Supervisor.get_pending_contexts() calls engine.dag.get_ready_tasks() which returns all nodes with
+      status == "pending" and satisfied dependencies. There is no CAS (compare-and-swap) or mutex. If two
+      Supervisor instances (or two concurrent invocations in the same process) both call this before either
+      marks a task "running", they both receive the same task, both dispatch SubAgents, and duplicate work
+      occurs. This is not a theoretical race — the shared/ YAML protocol is explicitly designed for
+      multi-member Syncthing collaboration, which means concurrent access is the normal operating mode.
+    suggestion: |
+      Add a `claim_task(task_id, claimant_id)` method that atomically sets status from "pending" to
+      "running" and records the claimant. Return False if the status was not "pending". Supervisor
+      calls claim_task() after get_ready_tasks() and skips tasks it cannot claim.
+
+  - severity: IMPORTANT
+    location: "Task 8: PostgreSQL schema — `EvidenceIndex.size_bytes` column at line 1257"
+    problem: File size stored as 32-bit Integer overflows for evidence files larger than 2.1 GB.
+    evidence: |
+      The schema defines `size_bytes = Column(Integer, nullable=True)`. SQLAlchemy Integer maps to a
+      32-bit signed integer (max 2,147,483,647 bytes ≈ 2.14 GB). Digital forensics regularly deals with
+      disk images, memory dumps, and VM snapshots exceeding 4 GB. A routine 4 GB memory dump would
+      silently overflow to a negative or truncated value in the database.
+    suggestion: |
+      Change to `Column(BigInteger, nullable=True)` (64-bit, max ~9.2 EB). Alternatively use
+      `Column(BigInteger)` from sqlalchemy.types. Update the import in models.py.
+
+  - severity: IMPORTANT
+    location: "Task 13: Shared state protocol — `write_finding()` at line 2099-2104"
+    problem: No idempotency guard; retrying after a write that succeeded but whose response was lost duplicates the finding.
+    evidence: |
+      write_finding() reads the existing YAML, appends the new finding, and atomically writes. If the
+      atomic write succeeds but the caller never receives confirmation (network drop, process kill
+      between os.replace and return), a retry will append the same finding again. The finding dict has
+      an "id" field (e.g., "member-A-F-001") but the code never checks for duplicate IDs before
+      appending. In a collaborative forensics workflow where findings feed into reports and chain-of-
+      custody, duplicate entries erode data integrity.
+    suggestion: |
+      Before appending, check if a finding with the same "id" already exists in the list. If so, skip
+      or update (upsert semantics). Add a test: write same finding twice, assert only one appears.
+
+  - severity: IMPORTANT
+    location: "Task 14: Supervisor agent logic — `decompose()` at lines 2236-2255 and `get_pending_contexts()` at lines 2257-2271"
+    problem: Supervisor assigns domain tasks even when CapabilityRegistry has no tools matching that domain for the SubAgent.
+    evidence: |
+      decompose() iterates `self.registry.list_domains()` and creates one TaskNode per domain. Then
+      get_pending_contexts() calls `self.registry.query(domain=node.type.split("_")[0], tags=[])`.
+      For the "synthesis" task, domain becomes "synthesis" which matches nothing — the SubAgentContext
+      gets available_tools=[]. For any registered domain that has no registered tools (empty after
+      query), the same problem occurs. A sub-agent dispatched with zero tools will either hang or
+      produce garbage output since it cannot execute its goal.
+    suggestion: |
+      In get_pending_contexts(), after querying tools, skip (do not return a context) if
+      available_tools is empty and the task type is not "synthesis". For the synthesis task, pass
+      dependency_findings from completed upstream tasks so the synthesis agent has content to work with.
+
+  - severity: IMPORTANT
+    location: "Task 6: PluginManager — `load_plugin()` at lines 1011-1018"
+    problem: PluginManager only calls `register_tools()`; `register_mcp_resources()` is never invoked, leaving MCP resources unregistered.
+    evidence: |
+      The BasePlugin ABC defines two abstract methods: register_tools() and register_mcp_resources().
+      The PluginManager.load_plugin() method only calls plugin.register_tools() inside the try block.
+      register_mcp_resources() is never called anywhere in the manager, the engine, or the Supervisor.
+      MCP resources (file system mounts, database connections, API endpoints exposed via MCP protocol)
+      will never be registered, making the MCP Server skeleton (Task 23) unable to discover resources
+      from loaded plugins.
+    suggestion: |
+      Add a `register_mcp_resources()` call in load_plugin(), either in the same try block (isolated) or
+      in a separate try/except. Add a test verifying that MCP resources from a FakePlugin appear in the
+      MCPServer after load.
+
+  - severity: IMPORTANT
+    location: "Task 13: Shared state protocol — concurrent intra-member writes to same YAML file"
+    problem: Two processes writing to the same member file race; the last writer silently overwrites the first writer's appended finding.
+    evidence: |
+      The design uses per-member finding files to avoid cross-member write conflicts, which is good.
+      But within a single member, two concurrent forhacker processes (e.g., two SubAgents reporting
+      findings simultaneously) will both: (1) read the file, (2) append their finding, (3) atomic
+      write. If both read before either writes, the second writer's os.replace() overwrites the first
+      writer's data. The first finding is lost with no error, log, or conflict marker.
+    suggestion: |
+      Document this limitation explicitly and, for Phase 2+, add file-level advisory locking (flock on
+      the .tmp file or a separate .lock file). For now, ensure that findings are only written
+      sequentially within a single member's task execution (SubAgent reporting → Supervisor aggregation → write).
+
+  - severity: IMPORTANT
+    location: "Task 10: DAG data structure — `_has_cycle()` at lines 1649-1669, used by `topological_sort()` at lines 1671-1687"
+    problem: topological_sort() on a graph that contains a cycle silently returns a partial/incomplete ordering.
+    evidence: |
+      The add_task() method explicitly rejects cycles, so a DAG in normal operation is acyclic. However,
+      _load_or_create() in TaskEngine reads tasks from YAML without re-validating acyclicity. If hand-edited
+      YAML or a bug introduces a cycle, topological_sort() returns only the non-cyclic subset with no error,
+      warning, or indication that tasks were omitted. The Supervisor would dispatch a subset of tasks and
+      consider the investigation complete.
+    suggestion: |
+      In _load_or_create(), after loading all tasks, call dag._has_cycle() and raise a clear error if
+      true. Add a test: load dag_state.yaml with a cycle, expect RuntimeError or similar.
+
+  - severity: IMPORTANT
+    location: "Task 11: TaskEngine — `_load_or_create()` at lines 1809-1823"
+    problem: Corrupted or truncated dag_state.yaml raises an uncaught exception that crashes engine initialization.
+    evidence: |
+      _load_or_create() calls yaml.safe_load() on the file content. If the file is corrupted (partial
+      write during power loss, filesystem error), yaml.safe_load() may raise yaml.YAMLError. The exception
+      propagates uncaught, crashing TaskEngine.__init__() and preventing any recovery. The plan mentions
+      atomic write via temp-file+rename, which reduces corruption probability, but does not eliminate it
+      (the .tmp file could be partially written before rename, or the filesystem itself could be damaged).
+    suggestion: |
+      Wrap the read+parse in try/except yaml.YAMLError. On failure, log a warning and fall back to an
+      empty DAG. Optionally, attempt to read the .tmp backup file as a secondary recovery path.
+
+  - severity: NIT
+    location: "Task 8: Data models — `default=datetime.datetime.utcnow` at lines 1220, 1233, 1258, 1269, 1279, 1297"
+    problem: `datetime.datetime.utcnow()` is deprecated in Python 3.12.
+    evidence: |
+      Python 3.12 deprecates datetime.utcnow() in favor of datetime.now(datetime.UTC). The plan specifies
+      Python 3.12 as the minimum version. While the code will still run (it's a deprecation warning, not
+      an error), it will produce deprecation warnings on every model instantiation and will break when
+      Python removes the function in a future version.
+    suggestion: |
+      Replace all `default=datetime.datetime.utcnow` with `default=lambda: datetime.datetime.now(datetime.UTC)`.
+      Add `import datetime` at the top of models.py explicitly.
+
+  - severity: NIT
+    location: "Task 8: Data layer — `close_db()` at lines 1326-1330"
+    problem: close_db() leaves _session_factory as a dangling reference after disposing the engine.
+    evidence: |
+      close_db() sets _engine = None after dispose but does not set _session_factory = None. Any
+      subsequent call to get_session() will return a session from the disposed engine, which will
+      fail at query time with a cryptic "connection closed" error rather than the clear "Database not
+      initialized" RuntimeError.
+    suggestion: |
+      Add `_session_factory = None` inside close_db() after the engine disposal.
+
+  - severity: NIT
+    location: "Task 4: SensitivityRouter — `route()` at lines 673-678"
+    problem: Invalid sensitivity values (empty string, misspelled, None) silently route to cloud without warning.
+    evidence: |
+      The route() method has three branches: FORHACKER_OFFLINE==1, sensitivity=="high", and else
+      (cloud). An empty string "", a misspelled "hihg", or a numeric value all fall through to the cloud
+      backend. If the caller intended "high" sensitivity but passed a typo, sensitive data silently goes
+      to a cloud API. This is a routine user error, not a catastrophic attack.
+    suggestion: |
+      Add validation: if sensitivity not in ("high", "low"), log a warning and default to "high"
+      (conservative). Test: route(sensitivity="") should route to local or raise ValueError.
+
+NO_BLOCKING_ISSUES: false

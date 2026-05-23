@@ -1,13 +1,10 @@
 import asyncio
-import importlib
 import os
-import sys
 from pathlib import Path
 
 import click
 
 from forhacker.llm.deepseek import DeepSeekBackend
-from forhacker.plugin.base import BasePlugin
 from forhacker.plugin.manager import PluginManager
 from forhacker.task.capability import CapabilityRegistry
 from forhacker.task.pipeline import Pipeline
@@ -16,31 +13,7 @@ from forhacker.task.pipeline import Pipeline
 def _discover_cell_plugins(cells_root: Path, registry: CapabilityRegistry) -> PluginManager:
     """Auto-discover and load Cell plugins from cells/ directory."""
     manager = PluginManager(registry=registry)
-    if not cells_root.exists():
-        return manager
-
-    # Add project root to path for cell imports
-    project_root = str(cells_root.parent)
-    if project_root not in sys.path:
-        sys.path.insert(0, project_root)
-
-    for cell_dir in sorted(cells_root.iterdir()):
-        if not cell_dir.is_dir() or cell_dir.name.startswith("_") or cell_dir.name.startswith("."):
-            continue
-        plugin_file = cell_dir / "plugin.py"
-        if not plugin_file.exists():
-            continue
-        try:
-            module_path = f"cells.{cell_dir.name}.plugin"
-            module = importlib.import_module(module_path)
-            for attr in dir(module):
-                obj = getattr(module, attr)
-                if isinstance(obj, type) and issubclass(obj, BasePlugin) and obj is not BasePlugin:
-                    manager.load_plugin(obj())
-                    break
-        except Exception:
-            click.echo(f"  Warning: failed to load plugin from {cell_dir.name}", err=True)
-
+    manager.load_from_cells(str(cells_root))
     return manager
 
 
@@ -77,10 +50,11 @@ def status():
 @case_group.command()
 @click.argument("name")
 @click.argument("goal")
+@click.option("--evidence", "-e", multiple=True, help="Evidence file/dir path (repeatable)")
 @click.option("--model", default="deepseek-chat", help="LLM model")
 @click.option("--api-key", default="", help="API key (or set DEEPSEEK_API_KEY env var)")
 @click.option("--no-llm-decompose", is_flag=True, help="Use rule-based decomposition")
-def run(name: str, goal: str, model: str, api_key: str, no_llm_decompose: bool):
+def run(name: str, goal: str, model: str, api_key: str, no_llm_decompose: bool, evidence: tuple[str, ...] = ()):
     """Run a forensics pipeline on a case."""
     api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
     case_dir = Path("shared") / "cases" / name
@@ -94,14 +68,18 @@ def run(name: str, goal: str, model: str, api_key: str, no_llm_decompose: bool):
         click.echo("No Cell plugins loaded. Create a plugin in cells/<name>/plugin.py")
         return
 
+    evidence_paths = [str(Path(p).absolute()) for p in evidence]
+
     click.echo(f"Loaded {len(manager.loaded_plugins)} plugin(s): {', '.join(manager.loaded_plugins)}")
     click.echo(f"Available tools: {sum(len(registry.query(d)) for d in registry.list_domains())}")
+    if evidence_paths:
+        click.echo(f"Evidence: {', '.join(evidence_paths)}")
 
     llm = DeepSeekBackend(model=model, api_key=api_key)
     pipeline = Pipeline(case_dir=case_dir, llm=llm, registry=registry, case_id=name)
 
     click.echo(f"Running pipeline for '{name}' with goal: {goal}")
-    report = asyncio.run(pipeline.run(goal, use_llm_decompose=not no_llm_decompose))
+    report = asyncio.run(pipeline.run(goal, evidence_paths=evidence_paths, use_llm_decompose=not no_llm_decompose))
 
     click.echo(f"\nPipeline: {report.status}")
     click.echo(f"  Tasks: {report.completed}/{report.total_tasks} done, {report.failed} failed")

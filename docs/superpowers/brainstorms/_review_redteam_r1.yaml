@@ -1,0 +1,264 @@
+# Red-team review of forhacker implementation plan (2026-05-21)
+# Reviewer: red-team
+# Each finding includes a concrete failing scenario (mandatory evidence rule).
+
+findings:
+
+- severity: BLOCKING
+  location: "Task 10: DAG data structure — test_reject_cycle and _has_cycle logic"
+  problem: "DAG cycle detection returns ADDED for a node depending on a task that was rejected (and deleted) in a prior cycle, because _has_cycle() skips dependencies that are absent from self.tasks. The test_reject_cycle assertion expects REJECTED_CYCLE but the code returns ADDED."
+  evidence: |
+    Preconditions: empty DAG.
+
+    Step 1: dag.add_task(T-001, deps=["T-002"]). T-002 not in self.tasks, so DFS skips it. No cycle detected. T-001 is ADDED with a dangling reference to non-existent T-002.
+
+    Step 2: dag.add_task(T-002, deps=["T-001"]). T-001 exists, DFS traverses T-001 -> T-002 -> T-001 (rec_stack). Cycle detected. T-002 is deleted from self.tasks. Returns REJECTED_CYCLE.
+
+    Step 3: dag.add_task(T-003, deps=["T-002"]). _has_cycle runs: DFS from T-001 encounters dep "T-002", but "T-002" not in self.tasks, so the branch is skipped. DFS from T-003 encounters dep "T-002", also absent. No cycle detected. Returns ADDED.
+
+    The test at line 1568-1574 asserts result == AddTaskResult.REJECTED_CYCLE for Step 3. The code returns ADDED. Test FAILS.
+
+    Additionally, the DAG now has T-001 and T-003 both depending on a non-existent T-002. get_ready_tasks() checks `self.tasks.get(dep)` for each dependency; T-002 returns None (falsy), so these tasks are permanently stuck in "pending" and will never be dispatched.
+  suggestion: "Before rejecting a task due to cycle, check all existing nodes' depends_on lists for references to the rejected task_id. Remove those dangling references, or reject the initial node that introduced the dangling edge. Alternatively, reject any node whose dependencies are not all present in the DAG."
+  reviewer_role: red-team
+
+- severity: BLOCKING
+  location: "Task 11: TaskEngine — test_engine_supervisor_crash_recovery"
+  problem: "The test asserts that a status change ('pending' -> 'running') survives a crash, but _write_through() is only called in add_task(), never on status mutation. The reloaded engine reads dag_state.yaml which still has status='pending'. The test assertion engine2.dag.tasks['T-001'].status == 'running' fails."
+  evidence: |
+    Preconditions: tmp_shared_dir with empty case_dir.
+
+    Step 1: engine = TaskEngine(case_dir). engine.add_task(T-001, status="pending").
+            _write_through() fires. dag_state.yaml contains task T-001 with status="pending".
+
+    Step 2: engine.dag.tasks["T-001"].status = "running"
+            Direct attribute mutation. _write_through() is NOT called. dag_state.yaml unchanged (status="pending").
+
+    Step 3: engine2 = TaskEngine(case_dir) — new instance.
+            _load_or_create() reads dag_state.yaml. Parses task T-001 with status="pending".
+            engine2.dag.tasks["T-001"].status == "pending" (NOT "running").
+
+    The test at line 1775-1784 asserts assert engine2.dag.tasks["T-001"].status == "running".
+    This assertion FAILS because the status mutation was never persisted.
+  suggestion: "Either (a) add a public update_status() method to TaskEngine that calls _write_through() on every status transition, or (b) change the test's expectation to assert status == 'pending' and add a separate note that Supervisor is responsible for re-asserting 'running' state after crash recovery."
+  reviewer_role: red-team
+
+- severity: BLOCKING
+  location: "Task 4: AnthropicBackend — Message role 'tool' is sent directly to Anthropic API"
+  problem: "AnthropicBackend sends messages with role='tool' directly to the Anthropic Messages API, which rejects 'tool' as an invalid role. This makes AnthropicBackend incompatible with any tool-calling workflow — the first tool result appended as Message(role='tool', ...) will cause an HTTP 400 error from the API."
+  evidence: |
+    Preconditions: AnthropicBackend initialized with valid API key.
+
+    Step 1: Agent calls complete([Message(role="user", content="run volatility")], tools=[...]).
+            Response includes a tool_use block. The Anthropic backend does NOT populate tool_calls in LLMResponse (see finding below).
+
+    Step 2: Agent executes the tool, gets a result string.
+
+    Step 3: Agent calls complete() again with the conversation including:
+            [Message(role="user", content="run volatility"),
+             Message(role="assistant", content=""),  // or whatever the model returned
+             Message(role="tool", content="process list: ...")]
+
+    Step 4: chat_msgs = [m for m in messages if m.role != "system"] — the tool message passes through.
+            The Anthropic API call sends {"role": "tool", "content": "process list: ..."}.
+            Anthropic API rejects: 400 Bad Request — "role must be 'user' or 'assistant'".
+
+    Observable failure: AnthropicBackend.complete() raises an exception. The task fails.
+    There are no tests for AnthropicBackend with tool calling, so the red-green-refactor cycle never catches this.
+  suggestion: "Anthropic's API requires tool results to be sent as user message content blocks (not as messages with role='tool'). The backend must (a) detect 'tool' role messages, (b) bundle their content into the preceding user message as content blocks with type='tool_result' and tool_use_id, or (c) explicitly document that AnthropicBackend does not support tool calling and raise NotImplementedError for tool scenarios."
+  reviewer_role: red-team
+
+- severity: BLOCKING
+  location: "Task 4: AnthropicBackend — tool_calls never populated in LLMResponse"
+  problem: "AnthropicBackend.complete() returns LLMResponse without setting tool_calls, which defaults to None. When the Anthropic model returns a tool_use block, it is silently discarded. Agents using Anthropic with tools will never see any tool calls from the model."
+  evidence: |
+    Preconditions: AnthropicBackend initialized. Messages sent with tools=[{"name": "search", ...}].
+
+    Step 1: complete() is called. Anthropic API returns a response with a content block where type="tool_use".
+
+    Step 2: The code does:
+            text = "".join(block.text for block in response.content if hasattr(block, "text"))
+            return LLMResponse(text=text, model=..., tokens_used=..., finish_reason=...)
+            # tool_calls defaults to None — never populated.
+
+    Step 3: The supervisor/agent checks resp.tool_calls — it is None. The model's tool call is lost.
+            The agent thinks the model produced a text response (empty string) and proceeds incorrectly.
+            No tool execution happens. Task produces wrong output.
+
+    This combines with the previous finding: even if you fix the tool-call extraction, you still cannot send tool results back.
+  suggestion: "Extract tool_use blocks from the response content and populate tool_calls in LLMResponse. Map Anthropic's tool_use format to the same dict schema used by OpenAIBackend."
+  reviewer_role: red-team
+
+- severity: BLOCKING
+  location: "Task 15: Syncthing health check — test_resolve_conflict_renames_loser"
+  problem: "The test asserts the resolved file is at path 'test.resolved-by-lead' (without .yaml suffix), but resolve_conflict() produces 'test.resolved-by-lead.yaml' (with suffix). The assertion resolved.exists() fails because the file doesn't exist at the asserted path."
+  evidence: |
+    Preconditions: test.sync-conflict-20260521.yaml exists in tmp_shared_dir.
+
+    Step 1: resolve_conflict(Path("test.sync-conflict-20260521.yaml"), operator="lead")
+            - stem = "test.sync-conflict-20260521.yaml".split(".sync-conflict-")[0] = "test"
+            - suffix = Path("test.sync-conflict-20260521.yaml").suffix = ".yaml"
+            - resolved = conflict_path.with_name("test.resolved-by-lead.yaml")
+            - conflict_path.rename(resolved) — file moves to test.resolved-by-lead.yaml
+
+    Step 2: The test checks:
+            assert resolved.exists() where resolved = tmp_shared_dir / "test.resolved-by-lead"
+            This path lacks the .yaml suffix. File does NOT exist at this path.
+            Assertion FAILS.
+
+    Root cause: the test's expected path omits the suffix that the code appends.
+  suggestion: "Fix the test to use 'test.resolved-by-lead.yaml' (include suffix): resolved = tmp_shared_dir / 'test.resolved-by-lead.yaml'."
+  reviewer_role: red-team
+
+- severity: BLOCKING
+  location: "Task 4: AnthropicBackend — supports_streaming=True but stream() raises NotImplementedError"
+  problem: "AnthropicBackend.supports_streaming returns True, but stream() unconditionally raises NotImplementedError. Code that checks supports_streaming and then calls stream() will crash at runtime."
+  evidence: |
+    Preconditions: AnthropicBackend initialized.
+
+    Step 1: backend = AnthropicBackend(model="claude-sonnet-4-6", api_key="...")
+    Step 2: if backend.supports_streaming:  # True
+                async for chunk in backend.stream(messages):  # NotImplementedError raised
+                    ...
+
+    Observable failure: NotImplementedError exception on first chunk iteration.
+    The contract is contradictory — supports_streaming advertises a capability that the implementation cannot deliver.
+  suggestion: "Change supports_streaming to return False until stream() is implemented, so callers can correctly fall back to complete()."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 14: Supervisor.decompose() — does not check engine.add_task() return value"
+  problem: "When decompose() is called more than once, it generates the same T-000, T-001, ... task IDs which collide with existing tasks. engine.add_task() returns REJECTED_DUPLICATE but decompose() ignores the return value and still appends the task_id to its result list and returns status='ok'. The caller receives a false success report with task IDs for tasks that were not created."
+  evidence: |
+    Preconditions: Supervisor with registry containing one domain ("forensics").
+
+    Step 1: supervisor.decompose("analyze memory") → creates T-000 (forensics_analysis) and T-001 (synthesis).
+            Returns {"status": "ok", "task_ids": ["T-000", "T-001"]}.
+            Correct: 2 tasks actually created.
+
+    Step 2: supervisor.decompose("analyze disk") → tries to create T-000 and T-001 again.
+            engine.add_task(T-000) returns REJECTED_DUPLICATE (ignored).
+            engine.add_task(T-001) returns REJECTED_DUPLICATE (ignored).
+            Returns {"status": "ok", "task_ids": ["T-000", "T-001"]}.
+            WRONG: 0 tasks created, but status is "ok" with 2 task_ids.
+
+    Observable failure: The DAG has the original 2 tasks only, but the decompose result claims there are 4. The Supervisor operates on a stale mental model.
+  suggestion: "Check the result of each engine.add_task() call. Collect only successfully added task IDs. If all tasks are duplicates, return status='error' with message 'Goal already decomposed — no new tasks added.'."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 14: Supervisor — synthesis task dispatched with zero tools"
+  problem: "The synthesis task has type='synthesis'. get_pending_contexts() extracts the domain via node.type.split('_')[0], yielding 'synthesis'. CapabilityRegistry.query(domain='synthesis', tags=[]) returns an empty list because no tools are registered under domain 'synthesis'. The synthesis sub-agent gets dispatched with available_tools=[], making it unable to aggregate findings."
+  evidence: |
+    Preconditions: Supervisor with one domain registered ("forensics"). decompose("analyze memory") called.
+    DAG: T-000 (type="forensics_analysis", deps=[], status="done"), T-001 (type="synthesis", deps=["T-000"]).
+
+    Step 1: T-000 completes, status set to "done".
+
+    Step 2: get_pending_contexts() calls get_ready_tasks(). T-001 is ready (T-000 done).
+
+    Step 3: For T-001: tools = self.registry.query(domain="synthesis", tags=[]) → returns [].
+
+    Step 4: SubAgentContext(task_id="T-001", available_tools=[], ...) is returned.
+            The synthesis sub-agent receives zero tools. It cannot read findings, correlate, or format output.
+
+    The test at line 2200-2205 never reaches this state because it checks contexts right after decompose, before T-000 is marked done.
+  suggestion: "Either (a) register a built-in 'synthesis' tool that reads findings YAML and aggregates them, or (b) in get_pending_contexts(), special-case synthesis tasks to inherit tools from the first domain with registered tools, or (c) give synthesis tasks access to collab/shared.py reader functions as default tools."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 14: Supervisor._cascade_block() — modifies status in-memory without persisting"
+  problem: "_cascade_block() directly sets node.status = 'blocked' on DAG nodes but never calls engine._write_through(). After a crash, the failed parent task regresses to its last-persisted status (typically 'pending'), and get_ready_tasks() will re-dispatch it as if it were a fresh task."
+  evidence: |
+    Preconditions: DAG with T-000 (done, deps=[]), T-001 (pending, deps=["T-000"]).
+    The last write-through happened when T-001 was added; dag_state.yaml has T-000.status="pending" and T-001.status="pending"
+    (because T-000 was marked "done" in memory only, never write-through).
+
+    Step 1: T-000 is retroactively marked "failed" (e.g., 90s heartbeat timeout detected by Supervisor).
+    Step 2: supervisor._cascade_block("T-000"): node.status = "blocked" set on T-001 in-memory.
+            _write_through() is NEVER called. dag_state.yaml unchanged.
+    Step 3: Process crashes before the next add_task() call.
+    Step 4: On restart, TaskEngine reads dag_state.yaml:
+            T-000.status = "pending" (was "failed" in memory before crash).
+            T-001.status = "pending" (was "blocked" in memory before crash).
+    Step 5: get_ready_tasks(): T-000 has no deps and status="pending" → READY.
+            T-000 is re-dispatched despite already having failed once.
+            The Supervisor re-runs a doomed task, wasting time and potentially producing duplicate findings.
+
+    This is the general form of the crash-recovery finding from Task 11: any status transition that is not followed by an add_task() call is lost on crash.
+  suggestion: "Add an update_status(task_id, new_status) method to TaskEngine that both mutates the DAG node and calls _write_through(), and have _cascade_block use it."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 3: OllamaBackend.complete() — tools parameter accepted but not forwarded to API"
+  problem: "OllamaBackend.complete() accepts a tools parameter in its signature but never passes it to the self._client.chat.completions.create() call. If the Supervisor assigns tool-using tasks to the Ollama backend, the tools are silently dropped."
+  evidence: |
+    Preconditions: OllamaBackend initialized. Supervisor dispatches a task with available_tools.
+
+    Step 1: complete() called with tools=[{"name": "vol3", "description": "...", "input_schema": {...}}]
+    Step 2: Code executes:
+            fmt = [{"role": m.role, "content": m.content} for m in messages]
+            response = await self._client.chat.completions.create(
+                model=self._model, messages=fmt, **kwargs
+            )
+            # tools is NOT included in the API call.
+    Step 3: Ollama server receives a request without tools. Returns a text response instead of a tool_call.
+    Step 4: Agent expects tool_calls in LLMResponse. Gets empty text. Following the wrong execution path.
+
+    Observable failure: The sub-agent cannot use tools through Ollama backend. This is especially bad because the sensitivity router routes high-sensitivity tasks to local (Ollama) backend — exactly the tasks that might need specialized forensics tools.
+  suggestion: "Pass tools=tools to the API call. Ollama's OpenAI-compatible API supports tool calling since v0.3+. If the specific Ollama model doesn't support tools, handle the API error gracefully with a clear error message."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 21: Security sandbox — firecracker.py listed in File Map but never implemented in Task 21"
+  problem: "The File Map lists forhacker/security/firecracker.py as a newly created file in Phase 5, and IsolationRouter returns 'firecracker' when KVM is available. But Task 21 never provides code for a FirecrackerSandbox class. The caller trying to instantiate the firecracker sandbox will encounter an ImportError."
+  evidence: |
+    Preconditions: KVM available, IsolationRouter returns "firecracker" for HIGH risk.
+
+    Step 1: Supervisor dispatches a HIGH-risk task.
+    Step 2: IsolationRouter.select("malware_analysis", "HIGH") with kvm_available=True returns "firecracker".
+    Step 3: Code tries to instantiate from forhacker.security.firecracker import FirecrackerSandbox.
+    Step 4: firecracker.py was created (per File Map) but contains only empty __init__.py or no FirecrackerSandbox class.
+
+    Observable failure: ImportError or AttributeError. HIGH-risk tasks cannot execute even when KVM is available.
+
+    The File Map at line 53 says Create: "forhacker/security/firecracker.py" but Task 21 only implements sandbox.py (ABC), docker.py (not shown/stubbed), and router.py. firecracker.py code is absent from the entire plan.
+  suggestion: "Either implement a minimal FirecrackerSandbox stub (as done for Docker) in Task 21, or remove firecracker.py from the Phase 5 File Map and mark it as deferred (consistent with the spec's Future Considerations)."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 10: DAG — add_task allows nodes with dependencies on non-existent tasks"
+  problem: "add_task() only checks for cycles, not for missing dependencies. A task that depends on a non-existent task_id is silently accepted. These tasks are permanently stuck in 'pending' because get_ready_tasks() requires deps to exist and be done — a non-existent dep is never done."
+  evidence: |
+    Preconditions: Empty DAG.
+
+    Step 1: dag.add_task(TaskNode(task_id="T-001", type="analysis", depends_on=["NONEXISTENT"]))
+            _has_cycle(): DFS from T-001, dep "NONEXISTENT" not in self.tasks → skipped. No cycle.
+            Returns ADDED.
+
+    Step 2: dag.get_ready_tasks():
+            For T-001: all(self.tasks.get(dep) and self.tasks[dep].status == "done" for dep in ["NONEXISTENT"])
+            self.tasks.get("NONEXISTENT") returns None (falsy).
+            T-001 is NOT ready. Will never be ready. Silent deadlock.
+
+    This is the same root cause as the dangling-reference case from the first BLOCKING finding, but generalized to any misspelled or deleted dependency.
+  suggestion: "In add_task(), before adding, verify that all task_ids in node.depends_on exist in self.tasks. Reject with AddTaskResult.REJECTED_MISSING_DEP if any dependency does not exist."
+  reviewer_role: red-team
+
+- severity: IMPORTANT
+  location: "Task 23: MCP Server — tool registry has no transport layer, cannot actually serve MCP"
+  problem: "The MCPServer class is a Python list wrapper with no JSON-RPC transport (no stdio handler, no HTTP endpoint). The spec says 'The core runs an MCP Server that exposes plugin tools as MCP endpoints,' but the plan commits a plain in-memory registry as a completed MCP server. External MCP clients (Claude Code, Cursor) cannot connect to it."
+  evidence: |
+    Preconditions: MCPServer instantiated, tools registered. forhacker process running.
+
+    Step 1: server = MCPServer(); server.register_tool(name="vol3", description="...", input_schema={...})
+    Step 2: The plan says "Enables external AI tools (Claude Code, Cursor) to call forhacker tools via MCP protocol."
+    Step 3: External client tries to discover tools. MCP protocol requires a JSON-RPC 2.0 endpoint over stdio or HTTP.
+    Step 4: MCPServer has no `run()`, no `serve()`, no stdin handler. It's just a Python list property.
+            The client cannot connect. No tools are exposed.
+
+    Observable failure: MCPServer passes unit tests (register_tool, list_tools) but is completely non-functional as an MCP server. External tools see nothing.
+  suggestion: "Either (a) add a transport layer (stdio JSON-RPC handler implementing the MCP `tools/list` and `tools/call` methods per spec), or (b) rename the class to MCPToolRegistry and add a note that MCP server transport is deferred to Phase 6."
+  reviewer_role: red-team
+
+NO_BLOCKING_ISSUES: false

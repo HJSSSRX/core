@@ -60,7 +60,11 @@ class Pipeline:
         )
         self._executor = SubAgentExecutor(llm=llm)
 
-    async def run(self, goal: str, use_llm_decompose: bool = True) -> PipelineReport:
+    async def run(
+        self, goal: str, evidence_paths: list[str] | None = None, use_llm_decompose: bool = True
+    ) -> PipelineReport:
+        if evidence_paths is None:
+            evidence_paths = []
         findings: list[dict[str, Any]] = []
         errors: list[str] = []
 
@@ -90,7 +94,7 @@ class Pipeline:
         semaphore = asyncio.Semaphore(self._max_concurrency)
 
         while True:
-            pending_contexts = self._supervisor.get_pending_contexts()
+            pending_contexts = self._supervisor.get_pending_contexts(evidence_paths=evidence_paths)
             if not pending_contexts:
                 # No pending tasks — check if any are still running
                 running = [n for n in all_tasks.values() if n.status == "running"]

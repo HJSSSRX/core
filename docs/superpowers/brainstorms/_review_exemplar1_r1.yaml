@@ -1,0 +1,47 @@
+- severity: BLOCKING
+  location: "Phase 1 (and entire plan)"
+  problem: "The sample defines an explicit GATE task that blocks all downstream work if a load-bearing assumption fails; the draft has no GATE mechanism at all — every task proceeds regardless of upstream validation."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 1 is labeled \"GATE — TDD Validation\" with rationale \"Step 1a is the load-bearing assumption of the entire design\" and explicit STOP condition \"If the GREEN phase fails after 2 REFACTOR iterations, STOP. Do not proceed to Task 2.\"; draft has no GATE-labeled task and no STOP condition that gates progress between tasks."
+  suggestion: "Add at least one GATE task early in the plan (e.g., after Task 2 LLMBackend ABC) that validates a load-bearing assumption — if it fails after N retries the plan must be redesigned — and mark it explicitly with STOP instructions."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md
+
+- severity: IMPORTANT
+  location: "Tasks 2-25"
+  problem: "The sample annotates every downstream task with an explicit \"Depends on:\" declaration; the draft groups tasks into phases but individual tasks lack dependency annotations, making it harder to reorder or parallelize work."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 2 says \"Depends on: Task 1 GREEN passing.\" and §Task 4 similarly references upstream tasks; draft tasks (e.g., §Task 3, §Task 6) list files to create but never state which prior tasks must complete first — only phase-level grouping conveys ordering."
+  suggestion: "Add a \"Depends on:\" line to each task header (e.g., Task 6 depends on Task 5 and Task 7 for CapabilityRegistry, Task 11 depends on Task 10 for DAG)."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md
+
+- severity: IMPORTANT
+  location: "All TDD task steps (Tasks 2-14, 17, 21-22)"
+  problem: "The sample's TDD steps include an explicit REFACTOR loop with a stop-on-exhaustion condition; the draft's TDD steps only have pass/fail expectations with no retry guidance."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 1 Step 4 contains \"If FAIL: Document the agent's exact output and rationalizations. This is a REFACTOR signal — the Step 1a text needs revision. Try up to 2 REFACTOR iterations. If still failing after 2 iterations, STOP and report back.\"; draft TDD steps (e.g., §Task 2 Steps 2-4, §Task 10 Steps 2-4) only say \"Run test — confirm failure\" then \"Implement\" then \"Run tests — confirm pass\" with no retry loop or exhaustion condition when implementation still fails."
+  suggestion: "Add a REFACTOR note to at least the first TDD task in each phase: if the GREEN step still fails after implementation, try up to 2 revisions, and stop with a report if still failing."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md
+
+- severity: NIT
+  location: "\"Files:\" blocks in Tasks 1-25"
+  problem: "The sample consistently distinguishes Create/Read/Modify in every task's Files block; the draft predominantly lists only Create actions, omitting Read entries even for files that tests import from."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 1 \"Files:\" lists \"Create: tests/...\" followed by three \"Read:\" entries for context files needed during testing; draft \"Files:\" sections (e.g., §Task 2, §Task 10) list only Create entries — no Read entries for files that the test imports (e.g., Task 6 tests import CapabilityRegistry from task/capability.py which was created in Task 7, but that dependency file is not listed as Read)."
+  suggestion: "Add Read entries to Files blocks where the task's steps reference or import from files created in prior tasks, to help implementers know what context to load before starting."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md
+
+- severity: NIT
+  location: "Commit steps across all tasks"
+  problem: "The sample's commit messages include issue tracker reference numbers; the draft's commit messages lack any ticket or issue identifier."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 1 Step 6 commit message includes \"(PRI-974)\" ticket reference; draft commit messages (e.g., §Task 2 Step 5, §Task 10 Step 5) have no issue tracker identifiers."
+  suggestion: "Add a spec or issue reference to each commit message (e.g., the spec file name or a ticket shorthand) for traceability."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md
+
+- severity: NIT
+  location: "Task 1 (and general task structure)"
+  problem: "The sample treats the test script as a standalone deliverable committed before implementation tasks begin; the draft bundles test creation and implementation into single tasks."
+  evidence: "Sample `2026-04-06-worktree-rototill.md` §Task 1 creates, validates, and commits the test script as an independent deliverable before §Task 2-3 rewrite the skill files; draft §Task 2 Step 1 creates the test, Step 3 implements the code, and Step 5 commits both together — test and implementation share a task boundary."
+  suggestion: "Consider splitting the first TDD task per phase into two: a validation task that commits the test infrastructure alone, followed by implementation tasks that use those tests."
+  reviewer_role: exemplar-matcher
+  assigned_sample: 2026-04-06-worktree-rototill.md

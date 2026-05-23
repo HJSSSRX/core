@@ -1,0 +1,187 @@
+round: 1
+counts:
+  raw: 45
+  after_dedup: 38
+  after_filter: 29
+  blocking: 12
+  important: 17
+  nit: 9
+degradation_check: N/A
+convergence_status: CONTINUE
+revision_instructions:
+  - finding_id: F1.1
+    severity: BLOCKING
+    location: "Task 10: DAG._has_cycle() — test_reject_cycle logic"
+    action_required: "Fix _has_cycle() so it rejects a node whose dependency was deleted in a prior cycle rejection. Before rejecting a task due to cycle, scan all existing nodes' depends_on for references to the rejected task_id and either remove those dangling references or reject the initial node that introduced the dangling edge."
+  - finding_id: F1.2
+    severity: BLOCKING
+    location: "Task 11: TaskEngine — status transitions never persisted to dag_state.yaml"
+    action_required: "Add a public update_status(task_id, new_status) method to TaskEngine that mutates the DAG node AND calls _write_through() atomically. All status transitions (including Supervisor._cascade_block) must go through this method. Fixes both the crash-recovery test failure and the _cascade_block persistence gap."
+  - finding_id: F1.3
+    severity: BLOCKING
+    location: "Task 4: AnthropicBackend — Message role='tool' sent directly to Anthropic API"
+    action_required: "Anthropic API requires tool results as user-message content blocks, not as role='tool' messages. Detect 'tool'-role messages in AnthropicBackend.complete() and bundle their content into the preceding user message as content blocks with type='tool_result' and tool_use_id, OR raise NotImplementedError for tool-calling scenarios with clear documentation."
+  - finding_id: F1.4
+    severity: BLOCKING
+    location: "Task 4: AnthropicBackend.complete() — tool_calls never populated in LLMResponse"
+    action_required: "Extract tool_use blocks from the Anthropic API response content and populate the tool_calls field in LLMResponse, mapping Anthropic's tool_use format to the same dict schema used by OpenAIBackend."
+  - finding_id: F1.5
+    severity: BLOCKING
+    location: "Task 15: Syncthing health check — test_resolve_conflict_renames_loser assertion path"
+    action_required: "Fix the test assertion path to include the .yaml suffix: change `resolved = tmp_shared_dir / 'test.resolved-by-lead'` to `resolved = tmp_shared_dir / 'test.resolved-by-lead.yaml'` to match the code's actual output."
+  - finding_id: F1.6
+    severity: BLOCKING
+    location: "Task 4: AnthropicBackend — supports_streaming returns True but stream() raises NotImplementedError"
+    action_required: "Change AnthropicBackend.supports_streaming to return False until stream() is actually implemented, so callers can correctly fall back to complete()."
+  - finding_id: F1.7
+    severity: BLOCKING
+    location: "Task 14: Supervisor._cascade_block() — only blocks direct dependents, not transitive"
+    action_required: "Make _cascade_block recursive (BFS or DFS): after marking a node as 'blocked', recursively block all nodes that depend on it. Add a test with a 3-level chain (T-0→T-1→T-2, fail T-0, assert T-1 and T-2 both become 'blocked')."
+  - finding_id: F1.8
+    severity: BLOCKING
+    location: "Task 11: TaskEngine + Task 14: Supervisor — no atomic claim transition from pending to running"
+    action_required: "Add a claim_task(task_id, claimant_id) method that atomically sets status from 'pending' to 'running' and records the claimant. Return False if status was not 'pending'. Supervisor must call claim_task() after get_ready_tasks() and skip tasks it cannot claim."
+  - finding_id: F1.9
+    severity: BLOCKING
+    location: "Task 6: BasePlugin ABC — MCPResource dataclass and register_mcp_resources() abstract method"
+    action_required: "Remove the MCPResource dataclass and register_mcp_resources() abstract method from BasePlugin. No consumer exists across the entire 25-task plan. Defer to a future spec when the MCP dual-mode wiring is designed and has a concrete consumer."
+  - finding_id: F1.10
+    severity: BLOCKING
+    location: "Task 19: PlatformIntrospection ABC — forhacker/meta/introspection.py"
+    action_required: "Remove forhacker/meta/introspection.py and its test from the plan. No concrete implementation exists; no code in MetaAgent imports or references it. Defer to a future spec when the Platform Optimizer role has a concrete implementation."
+  - finding_id: F1.11
+    severity: BLOCKING
+    location: "File Map — entries for forhacker/meta/browser.py (Phase 4) and forhacker/security/firecracker.py (Phase 5)"
+    action_required: "Remove forhacker/meta/browser.py and forhacker/security/firecracker.py from the File Map table and Verification Checklist. Neither file is assigned to any task in the 25-task plan. Defer both to future plans."
+  - finding_id: F1.12
+    severity: BLOCKING
+    location: "Phase 1 (and entire plan) — missing GATE task"
+    action_required: "Add at least one GATE task early in the plan (e.g., after Task 2 LLMBackend ABC) that validates a load-bearing assumption. Include explicit STOP instructions: if the task fails after N retries, do not proceed to subsequent tasks; the plan must be redesigned."
+  - finding_id: F1.13
+    severity: IMPORTANT
+    location: "Task 6 (BasePlugin ABC + PluginManager) and Task 7 (CapabilityRegistry) — cross-package type dependency"
+    action_required: "Move the Tool dataclass from plugin/base.py to a neutral types module (e.g., forhacker/_types.py or forhacker/task/types.py) so both task/ and plugin/ import from it, breaking the task ↔ plugin circular dependency and making the dependency direction consistent with the spec declaration (plugin/ → task/)."
+  - finding_id: F1.14
+    severity: IMPORTANT
+    location: "Task 11 (TaskEngine) and Task 13 (collab/shared.py) — dag_state.yaml dual-write paths"
+    action_required: "Make collab/shared.py the single source of truth for dag_state.yaml serialization. TaskEngine should call write_dag_checkpoint() and read_dag_checkpoint() instead of implementing its own _write_through(). Alternatively, extract a shared dag_io.py with an asyncio.Lock for write protection."
+  - finding_id: F1.15
+    severity: IMPORTANT
+    location: "Task 14: Supervisor.decompose() — does not check engine.add_task() return value"
+    action_required: "Check the result of each engine.add_task() call in decompose(). Collect only successfully added task IDs. If all tasks are duplicates, return status='error' with message 'Goal already decomposed — no new tasks added.'"
+  - finding_id: F1.16
+    severity: IMPORTANT
+    location: "Task 3: OllamaBackend.complete() — tools parameter accepted but not forwarded to API"
+    action_required: "Pass tools=tools to the self._client.chat.completions.create() call in OllamaBackend.complete(). Ollama's OpenAI-compatible API supports tool calling since v0.3+. If the specific model does not support tools, handle the API error gracefully."
+  - finding_id: F1.17
+    severity: IMPORTANT
+    location: "Task 10: DAG.add_task() — allows nodes with dependencies on non-existent tasks"
+    action_required: "In add_task(), before adding a node, verify that all task_ids in node.depends_on exist in self.tasks. Reject with AddTaskResult.REJECTED_MISSING_DEP if any dependency does not exist."
+  - finding_id: F1.18
+    severity: IMPORTANT
+    location: "Task 23: MCP Server — tool registry has no transport layer, cannot actually serve MCP"
+    action_required: "Either add a stdio JSON-RPC transport handler implementing MCP tools/list and tools/call methods, OR rename the class to MCPToolRegistry and add a note that MCP server transport is deferred to Phase 6."
+  - finding_id: F1.19
+    severity: IMPORTANT
+    location: "Task 8: PostgreSQL schema — EvidenceIndex.size_bytes column type"
+    action_required: "Change size_bytes from Column(Integer) to Column(BigInteger) to support evidence files larger than 2.1 GB (routine in digital forensics)."
+  - finding_id: F1.20
+    severity: IMPORTANT
+    location: "Task 13: collab/shared.py — write_finding() has no idempotency guard"
+    action_required: "Before appending a finding, check if a finding with the same 'id' already exists in the list. If so, skip or update (upsert semantics). Add a test: write same finding twice, assert only one appears."
+  - finding_id: F1.21
+    severity: IMPORTANT
+    location: "Task 14: Supervisor.get_pending_contexts() — dispatches sub-agent contexts even when available_tools is empty"
+    action_required: "In get_pending_contexts(), after querying tools, skip (do not return a context) if available_tools is empty and the task type is not 'synthesis'. For synthesis tasks, pass dependency_findings from completed upstream tasks so the synthesis agent has content to work with."
+  - finding_id: F1.22
+    severity: IMPORTANT
+    location: "Task 13: Shared state protocol — concurrent intra-member writes to same YAML file"
+    action_required: "Document this limitation explicitly. For Phase 2+, add file-level advisory locking (flock on .tmp file or separate .lock file). For now, ensure findings are written sequentially within a single member's task execution."
+  - finding_id: F1.23
+    severity: IMPORTANT
+    location: "Task 10: DAG.topological_sort() — silently returns partial ordering on graphs with cycles"
+    action_required: "In TaskEngine._load_or_create(), after loading all tasks from YAML, call dag._has_cycle() and raise a clear RuntimeError if a cycle is detected. Add a test: load dag_state.yaml with a cycle, expect RuntimeError."
+  - finding_id: F1.24
+    severity: IMPORTANT
+    location: "Task 11: TaskEngine._load_or_create() — corrupted/truncated dag_state.yaml raises uncaught exception"
+    action_required: "Wrap the yaml.safe_load() call in try/except yaml.YAMLError. On failure, log a warning and fall back to an empty DAG. Optionally attempt to read the .tmp backup file as a secondary recovery path."
+  - finding_id: F1.25
+    severity: IMPORTANT
+    location: "Task 4: SensitivityRouter — forhacker/llm/router.py"
+    action_required: "Remove forhacker/llm/router.py and tests/test_llm/test_router.py. The FORHACKER_OFFLINE env var alone satisfies the binary online/offline dual-mode goal. The sensitivity dimension (high/low) has no stated Goal and no consumer. Defer sensitivity-based routing to a future spec."
+  - finding_id: F1.26
+    severity: IMPORTANT
+    location: "Task 4: DeepSeekBackend — forhacker/llm/deepseek.py"
+    action_required: "Remove forhacker/llm/deepseek.py. Users configure DeepSeek via OpenAIBackend directly: OpenAIBackend(model='deepseek-chat', base_url='https://api.deepseek.com/v1'). Reintroduce as a subclass only when DeepSeek-specific behavior (rate limiting, token counting, tool-call format) diverges."
+  - finding_id: F1.27
+    severity: IMPORTANT
+    location: "Task 2: LLMBackend ABC — supports_streaming abstract property"
+    action_required: "Remove the supports_streaming abstract property from LLMBackend. It is never read by any production code in the plan. Reintroduce as a concrete property defaulting to False when a consumer actually needs to branch on streaming support."
+  - finding_id: F1.28
+    severity: IMPORTANT
+    location: "Tasks 2–25 — missing per-task dependency declarations"
+    action_required: "Add a 'Depends on:' line to each task header (e.g., 'Task 6 depends on Task 5 for BasePlugin; Task 7 for CapabilityRegistry'). Phase-level grouping alone is insufficient for reordering or parallelizing work."
+  - finding_id: F1.29
+    severity: IMPORTANT
+    location: "All TDD task steps (Tasks 2–14, 17, 21–22) — missing REFACTOR retry loop"
+    action_required: "Add a REFACTOR note to at least the first TDD task in each phase: if the GREEN step still fails after implementation, try up to 2 revisions, and stop with a report if still failing after exhaustion."
+findings_appendix:
+  - finding_id: F1.30
+    severity: NIT
+    location: "Task 7: CapabilityRegistry.query() — tags: list[str] parameter"
+    note: "tags parameter accepted but always ignored; Tool dataclass has no tags field. Remove tags from query() signature until Tool gains tags with filtering logic."
+  - finding_id: F1.31
+    severity: NIT
+    location: "Task 8: Data models — default=datetime.datetime.utcnow"
+    note: "datetime.utcnow() is deprecated in Python 3.12. Replace with default=lambda: datetime.datetime.now(datetime.UTC)."
+  - finding_id: F1.32
+    severity: NIT
+    location: "Task 8: Data layer — close_db() leaves _session_factory dangling"
+    note: "Add _session_factory = None inside close_db() after engine disposal to prevent cryptic 'connection closed' errors."
+  - finding_id: F1.33
+    severity: NIT
+    location: "Task 4: SensitivityRouter.route() — invalid sensitivity values silently route to cloud"
+    note: "Add validation: if sensitivity not in ('high', 'low'), log warning and default to 'high' (conservative). Moot if router is removed per F1.25."
+  - finding_id: F1.34
+    severity: NIT
+    location: "Task 12: SubAgentContext — config: dict field"
+    note: "config field is never populated or read by any code. Remove until a sub-agent implementation needs a specific typed configuration parameter."
+  - finding_id: F1.35
+    severity: NIT
+    location: "Task 13: collab/shared.py — _read_yaml accepts SCHEMA_VERSION - 1 (version 0)"
+    note: "Version 0 will never exist since code starts at version 1. Change check to exact match; add N-1 acceptance only when SCHEMA_VERSION is bumped to 2."
+  - finding_id: F1.36
+    severity: NIT
+    location: "All Tasks — Files blocks predominantly list only Create actions, omit Read entries"
+    note: "Add Read entries to Files blocks where task steps reference or import from files created in prior tasks."
+  - finding_id: F1.37
+    severity: NIT
+    location: "All Tasks — commit messages lack issue tracker or spec reference identifiers"
+    note: "Add a spec file name or ticket shorthand to each commit message for traceability."
+  - finding_id: F1.38
+    severity: NIT
+    location: "Task 1 (and general task structure) — test creation and implementation bundled into single task"
+    note: "Consider splitting the first TDD task per phase: a validation task that commits test infrastructure alone, followed by implementation tasks."
+discarded:
+  - finding_id: F1.39
+    arbiter_status: DEDUP_DISCARDED
+    arbiter_rationale: "Edge-cases finding E1 describes the same root cause (status transitions never persisted) at the same location (Task 11 _write_through only in add_task) as F1.2; R2 has a more specific failing test scenario."
+  - finding_id: F1.40
+    arbiter_status: MERGED into F1.2
+    arbiter_rationale: "Red-team finding R9 (_cascade_block does not persist) is a subset manifestation of the same root cause as F1.2 (no write-through on status change); the update_status fix for F1.2 directly resolves R9."
+  - finding_id: F1.41
+    arbiter_status: DEDUP_DISCARDED
+    arbiter_rationale: "Architect finding A4 (PlatformIntrospection ABC no implementation, NIT) describes the identical problem as F1.10 (Y2, BLOCKING) with lower severity; the stronger YAGNI removal action supersedes."
+  - finding_id: F1.42
+    arbiter_status: MERGED into F1.21
+    arbiter_rationale: "Red-team finding R8 (synthesis task zero tools) is a narrower case of the same problem as F1.21 (dispatching tasks without available tools); E6's broader fix covers both the synthesis-specific and general domain cases."
+  - finding_id: F1.43
+    arbiter_status: MERGED into F1.9
+    arbiter_rationale: "Edge-cases finding E7 (add register_mcp_resources call) proposes the opposite action to F1.9 (remove the unused interface). YAGNI prevails: wiring unused interfaces into dead code is worse than removing them. F1.9's removal fix makes E7 moot."
+  - finding_id: F1.44
+    arbiter_status: MERGED into F1.11
+    arbiter_rationale: "Red-team finding R11 (firecracker.py not implemented in Task 21) is a subset of F1.11 which covers both firecracker.py and browser.py as dead File Map entries with no corresponding task."
+  - finding_id: F1.45
+    arbiter_status: DEDUP_DISCARDED
+    arbiter_rationale: "YAGNI finding Y7 (tags parameter in query(), NIT) describes the identical problem as appendix entry F1.30 (architect A3); both note the tags parameter is accepted but ignored with no Tool.tags field to support it."
+arbiter_rationale: "12 BLOCKING findings survive, dominated by concrete test-failure bugs (F1.1 DAG cycle, F1.2 crash recovery, F1.5 Syncthing path mismatch) and dead-code/YAGNI violations (F1.9 MCPResource, F1.10 PlatformIntrospection, F1.11 phantom File Map entries). The MCPResource conflict (E7 vs Y1) was resolved in favor of YAGNI removal — wiring unused interfaces into dead code adds maintenance burden with zero value. SensitivityRouter (F1.25) and DeepSeekBackend (F1.26) are retained as IMPORTANT YAGNI findings: both have zero consumers and duplicate functionality achievable via simpler paths."

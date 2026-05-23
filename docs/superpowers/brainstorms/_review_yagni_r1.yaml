@@ -1,0 +1,147 @@
+findings:
+
+- severity: BLOCKING
+  location: "Task 6: BasePlugin ABC — MCPResource dataclass and register_mcp_resources() abstract method"
+  problem: "MCPResource dataclass and register_mcp_resources() abstract method are in the BasePlugin interface but have zero consumers."
+  evidence: |
+    What it is: A `MCPResource` dataclass (with uri/name/description/schema) and a corresponding
+    `register_mcp_resources()` abstract method on BasePlugin. Every plugin subclass must implement it.
+    What goal it claims to serve: "Plugin System (Python ABC + MCP Server dual-mode)" — the ABC side
+    provides an MCP resource registration path.
+    Why that goal doesn't require it: (a) No plugin test or fake plugin in the plan returns anything
+    from register_mcp_resources() except []. (b) The MCPServer in Task 23 has its own completely
+    independent tool registration (register_tool / list_tools) that never reads from BasePlugin's
+    MCPResource. (c) The two registration systems are not connected anywhere. The MCPResource path
+    is pure interface surface with no implementation or consumer across all 25 tasks.
+  suggestion: "Remove `MCPResource` dataclass and `register_mcp_resources()` abstract method from BasePlugin. Defer to a future spec when the MCP dual-mode wiring is actually designed and has a concrete consumer."
+  reviewer_role: yagni-gatekeeper
+
+- severity: BLOCKING
+  location: "Task 19: PlatformIntrospection ABC — forhacker/meta/introspection.py"
+  problem: "PlatformIntrospection is an abstract base class with three abstract methods and zero concrete implementations anywhere in the entire 25-task plan."
+  evidence: |
+    What it is: An ABC with abstract methods `list_registered_plugins()`, `get_skill_configurations()`,
+    and `get_recent_metrics()`. The plan creates a test proving it cannot be instantiated, implements
+    the ABC skeleton, and commits it.
+    What goal it claims to serve: "MetaAgent (four-role self-improvement)" — the Platform Optimizer
+    role reads platform state to propose improvements.
+    Why that goal doesn't require it: (a) The MetaAgent code in Task 18 (agent.py, evaluator.py,
+    sources.py) never imports or references PlatformIntrospection. (b) No concrete subclass exists
+    anywhere in the 25 tasks. (c) No code calls `list_registered_plugins()`, `get_skill_configurations()`,
+    or `get_recent_metrics()`. (d) The design principle of "abstract interface with >=2 implementations"
+    requires at least one concrete implementation to exist for the interface to be load-bearing; here
+    there are zero. This is pure abstraction-before-need.
+  suggestion: "Remove `forhacker/meta/introspection.py` and its test from the plan. Defer to a future spec when the Platform Optimizer role is being built and an actual concrete implementation exists."
+  reviewer_role: yagni-gatekeeper
+
+- severity: BLOCKING
+  location: "File Map table — entries for `forhacker/meta/browser.py` (Phase 4) and `forhacker/security/firecracker.py` (Phase 5)"
+  problem: "Two File Map entries declare files that are never created by any task in the 25-task plan."
+  evidence: |
+    What they are: `meta/browser.py` is listed in the File Map as a Phase 4 creation. `security/firecracker.py`
+    is listed as a Phase 5 creation. Both appear in the Verification Checklist (meta 6 files, security 3 files).
+    What goal they claim to serve: browser.py presumably serves MetaAgent (web browsing for sources);
+    firecracker.py serves Security Isolation (Firecracker microVM).
+    Why those goals don't require these files in this plan: (a) Neither file appears in the "Files:
+    Create" list of any task. (b) Task 18 and Task 19 cover every meta/ file except browser.py — it
+    is never assigned. (c) Task 21 covers sandbox.py and router.py; firecracker.py is never assigned.
+    (d) The Verification Checklist will fail for these entries because the files won't exist at plan
+    completion. These are dead planning artifacts that increase perceived scope without corresponding work.
+  suggestion: "Remove `forhacker/meta/browser.py` and `forhacker/security/firecracker.py` from the File Map table and Verification Checklist. Defer both to future specs/plans when implementation tasks exist for them."
+  reviewer_role: yagni-gatekeeper
+
+- severity: IMPORTANT
+  location: "Task 4: SensitivityRouter — forhacker/llm/router.py"
+  problem: "SensitivityRouter adds a sensitivity-based routing dimension ('high' vs 'low') that no stated Goal calls for."
+  evidence: |
+    What it is: A SensitivityRouter class that maps sensitivity="high" → local backend,
+    sensitivity="low" → cloud backend, with FORHACKER_OFFLINE overriding all to local.
+    Includes three tests covering high/low/offline routing paths.
+    What goal it claims to serve: "Competition-Ready (online/offline dual-mode)" — the FORHACKER_OFFLINE
+    env-var path handles the binary online/offline switch.
+    Why that goal doesn't require it: (a) The Competition-Ready goal is a binary toggle (online vs offline),
+    which FORHACKER_OFFLINE alone satisfies. (b) The sensitivity dimension (high/low) introduces a
+    data-classification concept that appears nowhere in the seven stated Goals. (c) No code in the plan
+    actually calls `router.route(sensitivity=...)` — neither the Supervisor, SubAgent dispatch, nor any
+    CLI command. (d) The Security Isolation goal covers Docker/Firecracker execution sandboxing, not
+    LLM routing policy. The sensitivity axis doubles the routing surface for a need not articulated
+    by any Goal.
+  suggestion: "Remove `forhacker/llm/router.py` and `tests/test_llm/test_router.py`. The FORHACKER_OFFLINE env var alone handles the stated online/offline dual-mode goal. Defer sensitivity-based routing to a future spec that defines data-classification requirements."
+  reviewer_role: yagni-gatekeeper
+
+- severity: IMPORTANT
+  location: "Task 4: DeepSeekBackend — forhacker/llm/deepseek.py"
+  problem: "DeepSeekBackend is a 7-line subclass of OpenAIBackend that adds zero new behavior."
+  evidence: |
+    What it is: A `DeepSeekBackend(OpenAIBackend)` class whose entire body is an __init__ that
+    calls super().__init__ with model="deepseek-chat" and base_url="https://api.deepseek.com/v1".
+    What goal it claims to serve: "Core Agent Framework (LLM-agnostic backend)" — providing a named
+    backend for DeepSeek.
+    Why that goal doesn't require it: (a) The exact same behavior is achievable with
+    `OpenAIBackend(model="deepseek-chat", api_key=..., base_url="https://api.deepseek.com/v1")`.
+    (b) No code in the plan checks `isinstance(backend, DeepSeekBackend)` or uses DeepSeekBackend
+    as a type discriminator. (c) No DeepSeek-specific behavior exists — no custom message conversion,
+    no token handling, no error mapping. (d) The class adds a file, module, import path, and test
+    maintenance burden for a pure config-wrapper. A backend factory or configuration dict would
+    achieve the same goal with less surface area.
+  suggestion: "Remove `forhacker/llm/deepseek.py`. Users configure DeepSeek via OpenAIBackend directly: `OpenAIBackend(model='deepseek-chat', base_url='https://api.deepseek.com/v1')`. If DeepSeek-specific behavior later emerges (rate limiting, token counting differences, tool-call format quirks), reintroduce the subclass then."
+  reviewer_role: yagni-gatekeeper
+
+- severity: IMPORTANT
+  location: "Task 2: LLMBackend ABC — `supports_streaming` abstract property"
+  problem: "The `supports_streaming` abstract property is required on every LLMBackend implementation but is never read by any production code in the plan."
+  evidence: |
+    What it is: `@property @abstractmethod def supports_streaming(self) -> bool` on the LLMBackend ABC.
+    Every backend subclass must implement it (OpenAIBackend returns True, OllamaBackend returns False,
+    AnthropicBackend returns True).
+    What goal it claims to serve: The stream() method exists on the ABC, and consumers might want to
+    check streaming support before calling it.
+    Why that goal doesn't require it: (a) No task in the plan imports or checks `supports_streaming` —
+    not the Supervisor, not the SubAgent dispatch, not the CLI, not the web dashboard. (b) The
+    OllamaBackend already raises `NotImplementedError` from `stream()`, so consumers can discover
+    non-support at call time. (c) The abstract property forces every future backend (including test
+    fakes in Task 4) to implement it, adding boilerplate for a capability check that has no consumer.
+  suggestion: "Remove the `supports_streaming` abstract property from LLMBackend. It can be reintroduced as a concrete property defaulting to False when a consumer (e.g., the Supervisor) actually needs to branch on streaming support."
+  reviewer_role: yagni-gatekeeper
+
+- severity: NIT
+  location: "Task 7: CapabilityRegistry.query() — `tags: list[str]` parameter"
+  problem: "The `tags` parameter is accepted but always ignored because the Tool dataclass has no tags field."
+  evidence: |
+    What it is: `def query(self, domain: str, tags: list[str]) -> list[Tool]` on CapabilityRegistry.
+    The implementation ignores tags entirely and returns all domain tools.
+    What it claims to serve: Tag-based filtering within a domain.
+    Why it isn't needed: The plan's own test (test_query_by_tags) documents: "no tag matching yet;
+    Tool has no tags field in base spec." The parameter exists in the signature but has no mechanism
+    to work. It's parameter-bloat on a read path.
+  suggestion: "Remove the `tags` parameter from `CapabilityRegistry.query()`. Change signature to `def query(self, domain: str) -> list[Tool]`. Reintroduce when Tool gains a tags field with actual filtering logic."
+  reviewer_role: yagni-gatekeeper
+
+- severity: NIT
+  location: "Task 12: SubAgentContext — `config: dict` field"
+  problem: "The `config` field on SubAgentContext is never populated or read by any code in the plan."
+  evidence: |
+    What it is: `config: dict = field(default_factory=dict)` on the SubAgentContext dataclass.
+    What it claims to serve: A passthrough for arbitrary configuration to sub-agents.
+    Why it isn't needed: (a) The Supervisor in Task 14 creates SubAgentContexts without ever setting
+    config (it stays the default empty dict). (b) No sub-agent implementation exists that reads config.
+    (c) The field has no schema, no validation, and no documented keys. It's a generic escape hatch
+    before a concrete use case exists.
+  suggestion: "Remove the `config` field from SubAgentContext. Add it back when a sub-agent implementation needs a specific configuration parameter — at which point make it a typed field rather than a generic dict."
+  reviewer_role: yagni-gatekeeper
+
+- severity: NIT
+  location: "Task 13: collab/shared.py — `_read_yaml` schema version downgrade acceptance"
+  problem: "The reader accepts SCHEMA_VERSION - 1 (version 0), but the writer always writes version 1 — version 0 files will never exist."
+  evidence: |
+    What it is: `if version not in (SCHEMA_VERSION, SCHEMA_VERSION - 1): raise ValueError(...)` in
+    `_read_yaml()`. Since SCHEMA_VERSION = 1, this accepts version 0.
+    What it claims to serve: Forward-compatibility for future schema upgrades.
+    Why it isn't needed: The code starts at version 1. There is no version 0 and there never will be.
+    The downgrade path (accepting N-1) is only useful when version 2 is introduced — at which point
+    the check can be added. Right now it's dead logic that implies a schema migration strategy that
+    doesn't exist yet.
+  suggestion: "Change the version check to `if version != SCHEMA_VERSION: raise ValueError(...)`. Add the N-1 acceptance when SCHEMA_VERSION is actually bumped to 2 and legacy files exist."
+  reviewer_role: yagni-gatekeeper
+
+NO_BLOCKING_ISSUES: false

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -8,6 +10,7 @@ class Tool:
     description: str
     domain: str
     risk_level: str  # LOW | MEDIUM | HIGH
+    handler: Callable[[str], dict[str, Any]] | None = field(default=None, compare=False)
 
 
 class BasePlugin(ABC):

@@ -78,7 +78,7 @@ def test_pipeline_decompose_with_llm(case_dir, registry_with_tools, decompose_ya
     assert report.total_tasks == 3
     assert report.completed == 3
     assert report.failed == 0
-    assert len(llm.complete_calls) >= 4  # 1 decompose + 3 tool analyses
+    assert len(llm.complete_calls) >= 3  # 1 decompose + 2 sub-agent analyses (synthesis skips LLM)
 
 
 def test_pipeline_decompose_rule_based(case_dir, registry_with_tools):
