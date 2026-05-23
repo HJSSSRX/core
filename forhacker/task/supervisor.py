@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from forhacker.llm.backend import LLMBackend, Message
 from forhacker.task.capability import CapabilityRegistry
@@ -224,9 +225,10 @@ class Supervisor:
         contexts = []
         for node in ready:
             if node.type == "synthesis":
-                tools = []  # synthesis aggregates findings, no tools needed
+                tools: list = []  # synthesis aggregates findings, no tools needed
             else:
                 tools = self.registry.query(domain=node.type.split("_")[0])
+                tools = self._filter_tools_by_evidence(tools, evidence_paths)
             ctx = SubAgentContext(
                 task_id=node.task_id,
                 case_id=self.case_id,
@@ -237,6 +239,36 @@ class Supervisor:
             )
             contexts.append(ctx)
         return contexts
+
+    @staticmethod
+    def _filter_tools_by_evidence(tools: list, evidence_paths: list[str]) -> list:
+        """Filter tools to only those applicable to the given evidence files.
+
+        A tool with no applicable_extensions (None or empty) runs on any evidence type.
+        """
+        if not evidence_paths:
+            return tools
+
+        exts = set()
+        for p in evidence_paths:
+            suffix = Path(p).suffix.lower()
+            if suffix:
+                exts.add(suffix)
+        if not exts:
+            return tools
+
+        filtered = []
+        for tool in tools:
+            allowed = getattr(tool, "applicable_extensions", None)
+            if not allowed:
+                filtered.append(tool)
+            elif any(ext in allowed for ext in exts):
+                filtered.append(tool)
+
+        if not filtered:
+            return [t for t in tools if not getattr(t, "applicable_extensions", None)]
+
+        return filtered
 
     def _cascade_block(self, failed_task_id: str):
         for _, node in self.engine.get_all_tasks().items():

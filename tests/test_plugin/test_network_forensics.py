@@ -86,9 +86,23 @@ def test_http_header_parse_empty():
     assert "error" in result
 
 
-def test_ip_geo_lookup_stub():
+def test_ip_geo_lookup_works():
     result = run_ip_geo_lookup("8.8.8.8")
-    assert result["status"] == "stub"
+    assert result["ip"] == "8.8.8.8"
+    assert "version" in result
+    assert result["version"] == 4
+    assert "classification" in result
+
+
+def test_ip_geo_lookup_private():
+    result = run_ip_geo_lookup("192.168.1.1")
+    assert result["is_private"] is True
+    assert result["classification"] == "private_rfc1918"
+
+
+def test_ip_geo_lookup_invalid():
+    result = run_ip_geo_lookup("not-an-ip")
+    assert "error" in result
 
 
 def test_connection_graph_netstat():

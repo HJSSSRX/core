@@ -10,6 +10,7 @@ class Tool:
     description: str
     domain: str
     risk_level: str  # LOW | MEDIUM | HIGH
+    applicable_extensions: tuple[str, ...] | None = field(default=None, compare=False)
     handler: Callable[[str], dict[str, Any]] | None = field(default=None, compare=False)
 
 

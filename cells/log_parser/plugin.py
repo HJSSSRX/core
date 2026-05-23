@@ -27,24 +27,28 @@ class LogParserPlugin(BasePlugin):
                 description="Parse CSV/TSV log files with header detection",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".csv", ".tsv", ".txt", ".log"),
             ),
             Tool(
                 name="parse_jsonl",
                 description="Parse JSON-lines (NDJSON) log files",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".jsonl", ".json", ".ndjson"),
             ),
             Tool(
                 name="parse_iis_log",
                 description="Parse Microsoft IIS W3C log format",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".log", ".txt"),
             ),
             Tool(
                 name="parse_evtx",
                 description="Parse Windows Event Log (.evtx) files",
                 domain="forensics",
                 risk_level="MEDIUM",
+                applicable_extensions=(".evtx",),
             ),
         ]
 
@@ -151,16 +155,19 @@ def run_parse_evtx(target: str, max_rows: int = 200) -> dict[str, Any]:
         return {"error": "python-evtx not installed. Run: pip install python-evtx"}
 
     events = []
-    with Evtx(target) as evtx:
-        for record in evtx.records():
-            try:
-                events.append(
-                    {"event_id": record.event_id(), "timestamp": str(record.timestamp()), "xml": record.xml()}
-                )
-            except Exception:
-                events.append({"error": "failed to parse record"})
-            if len(events) >= max_rows:
-                break
+    try:
+        with Evtx(target) as evtx:
+            for record in evtx.records():
+                try:
+                    events.append(
+                        {"event_id": record.event_id(), "timestamp": str(record.timestamp()), "xml": record.xml()}
+                    )
+                except Exception:
+                    events.append({"error": "failed to parse record"})
+                if len(events) >= max_rows:
+                    break
+    except Exception as e:
+        return {"error": f"Failed to parse EVTX file: {e}"}
 
     return {
         "file": str(Path(target).absolute()),

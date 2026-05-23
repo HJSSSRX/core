@@ -34,30 +34,35 @@ class EmailForensicsPlugin(BasePlugin):
                 description="Parse a .eml file — headers, body, and attachment metadata",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".eml",),
             ),
             Tool(
                 name="extract_email_headers",
                 description="Extract and parse email authentication headers",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".eml",),
             ),
             Tool(
                 name="analyze_attachments",
                 description="List and hash all attachments in an email",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".eml",),
             ),
             Tool(
                 name="detect_phishing_indicators",
                 description="Check for common phishing indicators in an email",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".eml",),
             ),
             Tool(
                 name="parse_mbox",
                 description="Parse an mbox format mail archive and list messages",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".mbox",),
             ),
         ]
 

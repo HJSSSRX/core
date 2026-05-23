@@ -32,6 +32,7 @@ class NetworkForensicsPlugin(BasePlugin):
                 description="Summarize a PCAP file — protocol breakdown, top talkers",
                 domain="network",
                 risk_level="LOW",
+                applicable_extensions=(".pcap", ".pcapng", ".cap"),
             ),
             Tool(
                 name="dns_lookup",
@@ -47,7 +48,7 @@ class NetworkForensicsPlugin(BasePlugin):
             ),
             Tool(
                 name="ip_geo_lookup",
-                description="Stub: GeoIP lookup (requires MaxMind database)",
+                description="Reverse DNS and IP classification (GeoIP stub)",
                 domain="network",
                 risk_level="MEDIUM",
             ),
@@ -176,13 +177,81 @@ def run_http_header_parse(text: str) -> dict[str, Any]:
 
 
 def run_ip_geo_lookup(ip_address: str) -> dict[str, Any]:
-    """GeoIP lookup stub — requires MaxMind GeoLite2 database."""
-    return {
-        "ip": ip_address,
-        "status": "stub",
-        "note": "GeoIP lookup requires MaxMind GeoLite2 database. "
-        "Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
-    }
+    """Perform reverse DNS lookup and basic IP validation/classification."""
+    if not ip_address or not ip_address.strip():
+        return {"error": "No IP address provided"}
+    ip = ip_address.strip()
+
+    result: dict[str, Any] = {"ip": ip}
+
+    # Validate IP format
+    try:
+        socket.inet_pton(socket.AF_INET, ip)
+        result["version"] = 4
+        result["is_private"] = _is_private_ipv4(ip)
+    except OSError:
+        try:
+            socket.inet_pton(socket.AF_INET6, ip)
+            result["version"] = 6
+            result["is_private"] = ip.startswith("fd") or ip.startswith("fc") or ip == "::1"
+        except OSError:
+            result["error"] = f"Invalid IP address: {ip}"
+            return result
+
+    # Reverse DNS
+    try:
+        hostname, _, _ = socket.gethostbyaddr(ip)
+        result["reverse_dns"] = hostname
+    except (socket.herror, socket.gaierror):
+        result["reverse_dns"] = None
+    except Exception as e:
+        result["reverse_dns_error"] = str(e)
+
+    # Classify IP type
+    if result.get("is_private"):
+        result["classification"] = "private_rfc1918"
+    elif result.get("reverse_dns"):
+        rdns = result["reverse_dns"].lower()
+        if any(k in rdns for k in ["aws", "amazon", "ec2"]):
+            result["classification"] = "cloud_aws"
+        elif any(k in rdns for k in ["azure", "cloudapp"]):
+            result["classification"] = "cloud_azure"
+        elif any(k in rdns for k in ["gcp", "google", "cloud"]):
+            result["classification"] = "cloud_gcp"
+        elif any(k in rdns for k in ["vpn", "proxy", "tor"]):
+            result["classification"] = "vpn_or_proxy"
+        elif any(k in rdns for k in ["cdn", "akamai", "cloudflare", "fastly", "cloudfront"]):
+            result["classification"] = "cdn"
+        elif any(k in rdns for k in ["isp", "broadband", "dsl", "fiber", "cable", "dial"]):
+            result["classification"] = "isp_residential"
+        else:
+            result["classification"] = "external"
+    else:
+        result["classification"] = "no_ptr_record"
+
+    result["note"] = "For GeoIP location (country/city), install MaxMind GeoLite2 database"
+    return result
+
+
+def _is_private_ipv4(ip: str) -> bool:
+    """Check if IPv4 address is in RFC 1918 private ranges."""
+    parts = ip.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        first = int(parts[0])
+        second = int(parts[1])
+    except ValueError:
+        return False
+    if first == 10:
+        return True
+    if first == 172 and 16 <= second <= 31:
+        return True
+    if first == 192 and second == 168:
+        return True
+    if ip == "127.0.0.1" or ip == "0.0.0.0":
+        return True
+    return False
 
 
 def run_connection_graph(text: str) -> dict[str, Any]:

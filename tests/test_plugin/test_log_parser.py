@@ -120,10 +120,10 @@ def test_parse_iis_log_max_rows(tmp_path):
     assert result["row_count"] == 3
 
 
-def test_parse_evtx_not_installed(tmp_path):
+def test_parse_evtx_invalid_file(tmp_path):
     from cells.log_parser.plugin import run_parse_evtx
 
     f = tmp_path / "test.evtx"
     f.write_text("dummy")
     result = run_parse_evtx(str(f))
-    assert "python-evtx" in result.get("error", "")
+    assert "error" in result

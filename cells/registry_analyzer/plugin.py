@@ -31,30 +31,35 @@ class RegistryAnalyzerPlugin(BasePlugin):
                 description="Parse a .reg export file into structured key/value pairs",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".reg",),
             ),
             Tool(
                 name="detect_startup_entries",
                 description="Extract persistence/autorun entries from registry exports",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".reg",),
             ),
             Tool(
                 name="detect_usb_history",
                 description="Extract USB device connection history from registry exports",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".reg",),
             ),
             Tool(
                 name="detect_recent_files",
                 description="Extract recently accessed files from registry exports",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".reg",),
             ),
             Tool(
                 name="detect_installed_software",
                 description="List installed software from Uninstall registry keys",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".reg",),
             ),
         ]
 

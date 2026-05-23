@@ -43,6 +43,9 @@ ignore = ["UP017"]  # datetime.UTC requires Python 3.11+
 "forhacker/meta/sources.py" = ["E501"]  # long URLs
 "tests/test_plugin/test_marketplace.py" = ["E501"]  # long register call
 
+[tool.setuptools.packages.find]
+include = ["forhacker*"]
+
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true

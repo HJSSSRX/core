@@ -80,10 +80,19 @@ def test_pe_info_not_pe(tmp_path):
     assert "error" in result
 
 
-def test_yara_scan_no_dep():
-    result = run_yara_scan("dummy")
+def test_yara_scan_file_not_found():
+    result = run_yara_scan("/nonexistent/file.bin")
     assert "error" in result
-    assert "yara-python" in result["error"]
+
+
+def test_yara_scan_works(tmp_path):
+    import yara  # type: ignore[import-untyped]
+    f = tmp_path / "test.bin"
+    f.write_text("This contains a suspicious PowerShell IEX command and a keylogger string")
+    result = run_yara_scan(str(f))
+    assert "error" not in result
+    assert "match_count" in result
+    assert result["file"] == str(f.absolute())
 
 
 def test_pe_info_not_found():
@@ -110,12 +119,20 @@ def test_pe_info_corrupt_header(tmp_path):
     assert "error" in result
 
 
-def test_volatility3_pslist_stub():
+def test_volatility3_pslist_file_not_found():
     from cells.forensics_core.plugin import run_volatility3_pslist
 
-    result = run_volatility3_pslist("memory.dmp")
+    result = run_volatility3_pslist("/nonexistent/memory.dmp")
     assert "error" in result
-    assert "volatility3" in result["error"]
+
+
+def test_volatility3_pslist_not_a_dump(tmp_path):
+    from cells.forensics_core.plugin import run_volatility3_pslist
+
+    f = tmp_path / "not_memory.dmp"
+    f.write_text("not a memory dump")
+    result = run_volatility3_pslist(str(f))
+    assert "error" in result
 
 
 def test_plugin_loads_in_manager():

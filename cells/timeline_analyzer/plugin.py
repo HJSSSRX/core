@@ -32,30 +32,35 @@ class TimelineAnalyzerPlugin(BasePlugin):
                 description="Build a unified chronological timeline from JSON event data",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".json",),
             ),
             Tool(
                 name="detect_timeline_gaps",
                 description="Detect time gaps in a timeline that may indicate tampering",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".json",),
             ),
             Tool(
                 name="correlate_events",
                 description="Correlate events by time window proximity",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".json",),
             ),
             Tool(
                 name="deduplicate_events",
                 description="Deduplicate timeline events by time and content similarity",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".json",),
             ),
             Tool(
                 name="export_timeline_csv",
                 description="Export a timeline to CSV format",
                 domain="forensics",
                 risk_level="LOW",
+                applicable_extensions=(".json",),
             ),
         ]
 
