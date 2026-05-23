@@ -27,16 +27,31 @@ class ForensicsCorePlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="file_hash", description="Calculate SHA256 and MD5 hashes of a file",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="extract_strings", description="Extract ASCII/UTF-16 printable strings from a file",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="pe_info", description="Parse PE header: sections, entry point, imports",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="yara_scan", description="Scan files with YARA rules",
-                 domain="forensics", risk_level="MEDIUM"),
-            Tool(name="volatility3_pslist", description="List processes from memory dump via Volatility 3",
-                 domain="forensics", risk_level="MEDIUM"),
+            Tool(
+                name="file_hash",
+                description="Calculate SHA256 and MD5 hashes of a file",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="extract_strings",
+                description="Extract ASCII/UTF-16 printable strings from a file",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="pe_info",
+                description="Parse PE header: sections, entry point, imports",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(name="yara_scan", description="Scan files with YARA rules", domain="forensics", risk_level="MEDIUM"),
+            Tool(
+                name="volatility3_pslist",
+                description="List processes from memory dump via Volatility 3",
+                domain="forensics",
+                risk_level="MEDIUM",
+            ),
         ]
 
 
@@ -84,7 +99,7 @@ def run_pe_info(target: str) -> dict[str, Any]:
         return {"error": "Not a valid PE file (missing MZ header)"}
     try:
         pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
-        if data[pe_offset:pe_offset + 4] != b"PE\x00\x00":
+        if data[pe_offset : pe_offset + 4] != b"PE\x00\x00":
             return {"error": "PE signature not found"}
         machine = struct.unpack_from("<H", data, pe_offset + 4)[0]
         num_sections = struct.unpack_from("<H", data, pe_offset + 6)[0]

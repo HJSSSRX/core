@@ -11,3 +11,5 @@ build/
 .venv/
 uv.lock
 shared/
+.coverage
+coverage.json

@@ -10,6 +10,7 @@ class MetaAgent:
 
     def add_source(self, name: str, url: str, category: str):
         from forhacker.meta.sources import Source
+
         self.sources.append(Source(name=name, url=url, category=category))
 
     def submit_proposal(self, proposal: Proposal) -> bool:

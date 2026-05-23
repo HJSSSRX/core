@@ -26,16 +26,13 @@ class PlatformIntrospection(ABC):
     """Read-only introspection surface for the Platform Optimizer role."""
 
     @abstractmethod
-    def list_registered_plugins(self) -> list[PluginInfo]:
-        ...
+    def list_registered_plugins(self) -> list[PluginInfo]: ...
 
     @abstractmethod
-    def get_skill_configurations(self) -> dict[str, Any]:
-        ...
+    def get_skill_configurations(self) -> dict[str, Any]: ...
 
     @abstractmethod
-    def get_recent_metrics(self, window_seconds: float) -> dict[str, Any]:
-        ...
+    def get_recent_metrics(self, window_seconds: float) -> dict[str, Any]: ...
 
 
 class IntrospectionAgent(PlatformIntrospection):
@@ -58,16 +55,17 @@ class IntrospectionAgent(PlatformIntrospection):
                 continue
             try:
                 tree = ast.parse(plugin_file.read_text(encoding="utf-8"))
-                tool_count = len([
-                    n for n in ast.walk(tree)
-                    if isinstance(n, ast.FunctionDef) and not n.name.startswith("_")
-                ])
-                plugins.append(PluginInfo(
-                    name=cell_dir.name,
-                    version="0.1.0",
-                    domain=cell_dir.name.replace("_", "-"),
-                    tool_count=tool_count,
-                ))
+                tool_count = len(
+                    [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and not n.name.startswith("_")]
+                )
+                plugins.append(
+                    PluginInfo(
+                        name=cell_dir.name,
+                        version="0.1.0",
+                        domain=cell_dir.name.replace("_", "-"),
+                        tool_count=tool_count,
+                    )
+                )
             except (SyntaxError, UnicodeDecodeError):
                 continue
         return plugins
@@ -89,6 +87,7 @@ class IntrospectionAgent(PlatformIntrospection):
             if hooks_file.exists():
                 try:
                     import json
+
                     settings = json.loads(hooks_file.read_text(encoding="utf-8"))
                     config["hooks"] = list(settings.get("hooks", {}).keys())
                 except (json.JSONDecodeError, OSError):
@@ -104,8 +103,9 @@ class IntrospectionAgent(PlatformIntrospection):
 
         cells_root = self._root.parent / "cells"
         if cells_root.exists():
-            metrics["plugin_count"] = len([d for d in cells_root.iterdir()
-                                           if d.is_dir() and (d / "plugin.py").exists()])
+            metrics["plugin_count"] = len(
+                [d for d in cells_root.iterdir() if d.is_dir() and (d / "plugin.py").exists()]
+            )
 
         kb_dir = Path("shared") / "kb"
         if kb_dir.exists():
@@ -128,20 +128,29 @@ class IntrospectionAgent(PlatformIntrospection):
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
-            return [CodeIssue(
-                file=str(path.relative_to(root)), line=1, severity="HIGH",
-                category="security", description=f"Cannot parse {path.name} — possible syntax error",
-            )]
+            return [
+                CodeIssue(
+                    file=str(path.relative_to(root)),
+                    line=1,
+                    severity="HIGH",
+                    category="security",
+                    description=f"Cannot parse {path.name} — possible syntax error",
+                )
+            ]
 
         rel = str(path.relative_to(root))
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef) and node.name.startswith("_"):
                 if not self._is_used(tree, node.name):
-                    issues.append(CodeIssue(
-                        file=rel, line=node.lineno, severity="LOW",
-                        category="unused_code",
-                        description=f"Private function '{node.name}' may be unused",
-                    ))
+                    issues.append(
+                        CodeIssue(
+                            file=rel,
+                            line=node.lineno,
+                            severity="LOW",
+                            category="unused_code",
+                            description=f"Private function '{node.name}' may be unused",
+                        )
+                    )
         return issues
 
     def _is_used(self, tree: ast.AST, name: str) -> bool:

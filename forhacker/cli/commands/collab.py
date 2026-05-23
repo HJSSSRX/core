@@ -136,6 +136,7 @@ def resolve(conflict_path: str, keep: str, force: bool):
 def syncthing():
     """Check Syncthing health."""
     import asyncio
+
     health = SyncthingHealth()
     result = asyncio.run(health.check())
     click.echo(f"Syncthing: {result['status']}")
@@ -149,6 +150,7 @@ def syncthing():
 def sync(folder: str):
     """Trigger Syncthing to rescan the shared folder."""
     import asyncio
+
     health = SyncthingHealth()
     result = asyncio.run(health.rescan(folder_id=folder))
     click.echo(f"Sync rescan: {result['status']}")

@@ -35,8 +35,7 @@ def _discover_cell_plugins(cells_root: Path, registry: CapabilityRegistry) -> Pl
             module = importlib.import_module(module_path)
             for attr in dir(module):
                 obj = getattr(module, attr)
-                if (isinstance(obj, type) and issubclass(obj, BasePlugin)
-                        and obj is not BasePlugin):
+                if isinstance(obj, type) and issubclass(obj, BasePlugin) and obj is not BasePlugin:
                     manager.load_plugin(obj())
                     break
         except Exception:

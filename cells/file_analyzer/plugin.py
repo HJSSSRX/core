@@ -42,12 +42,24 @@ class FileAnalyzerPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="detect_file_type", description="Detect file type via magic bytes and extension",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="calculate_entropy", description="Calculate Shannon entropy to detect packed/encrypted content",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="file_timeline", description="Collect MAC timestamps for timeline analysis",
-                 domain="forensics", risk_level="LOW"),
+            Tool(
+                name="detect_file_type",
+                description="Detect file type via magic bytes and extension",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="calculate_entropy",
+                description="Calculate Shannon entropy to detect packed/encrypted content",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="file_timeline",
+                description="Collect MAC timestamps for timeline analysis",
+                domain="forensics",
+                risk_level="LOW",
+            ),
         ]
 
 
@@ -62,7 +74,7 @@ def run_detect_file_type(target: str) -> dict[str, Any]:
     data = path.read_bytes()[:16]
     detections = []
     for name, (offset, sig) in SIGNATURES.items():
-        if data[offset:offset + len(sig)] == sig:
+        if data[offset : offset + len(sig)] == sig:
             detections.append(name)
 
     return {
@@ -95,7 +107,7 @@ def run_calculate_entropy(target: str, block_size: int = 4096) -> dict[str, Any]
     # Block-level entropy (for detecting mixed content)
     block_entropies = []
     for i in range(0, len(data), block_size):
-        block = data[i:i + block_size]
+        block = data[i : i + block_size]
         if not block:
             continue
         bc = Counter(block)
@@ -127,18 +139,20 @@ def run_file_timeline(directory: str) -> dict[str, Any]:
     if not root.exists():
         return {"error": f"Directory not found: {directory}"}
 
-    entries = []
+    entries: list[dict[str, Any]] = []
     for fpath in root.rglob("*"):
         if not fpath.is_file():
             continue
         st = fpath.stat()
-        entries.append({
-            "path": str(fpath.relative_to(root)),
-            "size": st.st_size,
-            "modified": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
-            "accessed": datetime.fromtimestamp(st.st_atime, tz=timezone.utc).isoformat(),
-            "created": datetime.fromtimestamp(st.st_ctime, tz=timezone.utc).isoformat(),
-        })
+        entries.append(
+            {
+                "path": str(fpath.relative_to(root)),
+                "size": st.st_size,
+                "modified": datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
+                "accessed": datetime.fromtimestamp(st.st_atime, tz=timezone.utc).isoformat(),
+                "created": datetime.fromtimestamp(st.st_ctime, tz=timezone.utc).isoformat(),
+            }
+        )
 
     entries.sort(key=lambda e: e["modified"], reverse=True)
     return {

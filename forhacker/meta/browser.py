@@ -27,8 +27,12 @@ class WebBrowser:
             import httpx
         except ImportError:
             return ScrapeResult(
-                source=source.name, url=source.url, title="", snippet="",
-                status="error", error="httpx not installed",
+                source=source.name,
+                url=source.url,
+                title="",
+                snippet="",
+                status="error",
+                error="httpx not installed",
             )
 
         try:
@@ -37,18 +41,29 @@ class WebBrowser:
                 resp.raise_for_status()
                 title, snippet = self._extract_preview(resp.text)
                 return ScrapeResult(
-                    source=source.name, url=source.url, title=title,
-                    snippet=snippet, status="ok",
+                    source=source.name,
+                    url=source.url,
+                    title=title,
+                    snippet=snippet,
+                    status="ok",
                 )
         except httpx.TimeoutException:
             return ScrapeResult(
-                source=source.name, url=source.url, title="", snippet="",
-                status="timeout", error=f"Timed out after {FETCH_TIMEOUT}s",
+                source=source.name,
+                url=source.url,
+                title="",
+                snippet="",
+                status="timeout",
+                error=f"Timed out after {FETCH_TIMEOUT}s",
             )
         except Exception as exc:
             return ScrapeResult(
-                source=source.name, url=source.url, title="", snippet="",
-                status="error", error=str(exc),
+                source=source.name,
+                url=source.url,
+                title="",
+                snippet="",
+                status="error",
+                error=str(exc),
             )
 
     @staticmethod

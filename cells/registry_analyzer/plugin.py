@@ -26,16 +26,36 @@ class RegistryAnalyzerPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="parse_reg", description="Parse a .reg export file into structured key/value pairs",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_startup_entries", description="Extract persistence/autorun entries from registry exports",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_usb_history", description="Extract USB device connection history from registry exports",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_recent_files", description="Extract recently accessed files from registry exports",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_installed_software", description="List installed software from Uninstall registry keys",
-                 domain="forensics", risk_level="LOW"),
+            Tool(
+                name="parse_reg",
+                description="Parse a .reg export file into structured key/value pairs",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_startup_entries",
+                description="Extract persistence/autorun entries from registry exports",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_usb_history",
+                description="Extract USB device connection history from registry exports",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_recent_files",
+                description="Extract recently accessed files from registry exports",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_installed_software",
+                description="List installed software from Uninstall registry keys",
+                domain="forensics",
+                risk_level="LOW",
+            ),
         ]
 
 
@@ -55,8 +75,11 @@ def run_parse_reg(target: str) -> dict[str, Any]:
     if not path.exists():
         return {"error": f"File not found: {target}"}
 
-    content = path.read_text(encoding="utf-16-le", errors="replace") if _is_unicode_reg(path) \
+    content = (
+        path.read_text(encoding="utf-16-le", errors="replace")
+        if _is_unicode_reg(path)
         else path.read_text(encoding="utf-8", errors="replace")
+    )
 
     line_number = 0
     current_key = ""
@@ -146,11 +169,13 @@ def run_detect_startup_entries(target: str) -> dict[str, Any]:
         for path in STARTUP_PATHS:
             if full_key.lower().endswith(path.lower()):
                 for name, value in values.items():
-                    entries.append({
-                        "key_path": full_key,
-                        "entry_name": name,
-                        "command": value,
-                    })
+                    entries.append(
+                        {
+                            "key_path": full_key,
+                            "entry_name": name,
+                            "command": value,
+                        }
+                    )
 
     return {
         "startup_entry_count": len(entries),
@@ -210,11 +235,13 @@ def run_detect_recent_files(target: str) -> dict[str, Any]:
         for path in RECENT_PATHS:
             if path.lower() in full_key.lower():
                 for name, value in values.items():
-                    recent.append({
-                        "key_path": full_key,
-                        "entry": name,
-                        "value": value[:200],
-                    })
+                    recent.append(
+                        {
+                            "key_path": full_key,
+                            "entry": name,
+                            "value": value[:200],
+                        }
+                    )
 
     return {
         "recent_file_count": len(recent),
@@ -242,13 +269,15 @@ def run_detect_installed_software(target: str) -> dict[str, Any]:
             if path.lower() in full_key.lower():
                 display_name = values.get("DisplayName", "")
                 if display_name:
-                    software.append({
-                        "name": display_name,
-                        "version": values.get("DisplayVersion", ""),
-                        "publisher": values.get("Publisher", ""),
-                        "install_date": values.get("InstallDate", ""),
-                        "key_path": full_key,
-                    })
+                    software.append(
+                        {
+                            "name": display_name,
+                            "version": values.get("DisplayVersion", ""),
+                            "publisher": values.get("Publisher", ""),
+                            "install_date": values.get("InstallDate", ""),
+                            "key_path": full_key,
+                        }
+                    )
 
     pub_counter = Counter(s["publisher"] for s in software if s["publisher"])
 

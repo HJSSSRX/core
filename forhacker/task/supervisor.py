@@ -64,14 +64,13 @@ class SubAgentExecutor:
         )
         assert self._llm is not None
         response = await self._llm.complete([Message(role="user", content=prompt)])
-        return {"tool": getattr(tool, 'name', ''), "analysis": response.text, "model": response.model}
+        return {"tool": getattr(tool, "name", ""), "analysis": response.text, "model": response.model}
 
 
 class Supervisor:
     """Task decomposition and dispatch. Optionally uses an LLM for smarter planning."""
 
-    def __init__(self, engine: TaskEngine, registry: CapabilityRegistry, case_id: str,
-                 llm: LLMBackend | None = None):
+    def __init__(self, engine: TaskEngine, registry: CapabilityRegistry, case_id: str, llm: LLMBackend | None = None):
         self.engine = engine
         self.registry = registry
         self.case_id = case_id
@@ -103,13 +102,12 @@ class Supervisor:
         if self._llm is None:
             return self.decompose(goal)
 
-        tools_summary = "\n".join(
-            f"- {d}: {[t.name for t in self.registry.query(d)]}" for d in domains
-        )
+        tools_summary = "\n".join(f"- {d}: {[t.name for t in self.registry.query(d)]}" for d in domains)
         prompt = DECOMPOSE_PROMPT.format(tools_summary=tools_summary, goal=goal, domains=domains)
         response = await self._llm.complete([Message(role="user", content=prompt)])
 
         import yaml
+
         try:
             text = response.text
             if "```" in text:

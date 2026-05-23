@@ -72,15 +72,15 @@ def test_router_no_backend_raises():
 
 def test_router_complete_routes():
     import asyncio
+
     router = SensitivityRouter()
     low = _MockBackend("low")
     router.register("LOW", low)
 
     async def _test():
         from forhacker.llm.backend import Message
-        resp = await router.complete(
-            [Message(role="user", content="hi")], sensitivity="LOW"
-        )
+
+        resp = await router.complete([Message(role="user", content="hi")], sensitivity="LOW")
         assert resp.model == "low"
         assert len(low.calls) == 1
 

@@ -7,7 +7,7 @@ import email
 import hashlib
 import mailbox
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from email.policy import default
 from pathlib import Path
 from typing import Any
@@ -29,16 +29,36 @@ class EmailForensicsPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="parse_eml", description="Parse a .eml file — headers, body, and attachment metadata",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="extract_email_headers", description="Extract and analyze email headers (Received, From, To, Subject, SPF, DKIM, DMARC)",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="analyze_attachments", description="List and hash all attachments in an email",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_phishing_indicators", description="Check for common phishing indicators in an email",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="parse_mbox", description="Parse an mbox format mail archive and list messages",
-                 domain="forensics", risk_level="LOW"),
+            Tool(
+                name="parse_eml",
+                description="Parse a .eml file — headers, body, and attachment metadata",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="extract_email_headers",
+                description="Extract and parse email authentication headers",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="analyze_attachments",
+                description="List and hash all attachments in an email",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_phishing_indicators",
+                description="Check for common phishing indicators in an email",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="parse_mbox",
+                description="Parse an mbox format mail archive and list messages",
+                domain="forensics",
+                risk_level="LOW",
+            ),
         ]
 
 
@@ -81,12 +101,14 @@ def run_parse_eml(target: str) -> dict[str, Any]:
             if "attachment" in disp:
                 payload = part.get_payload(decode=True)
                 sha = hashlib.sha256(payload).hexdigest() if payload else ""
-                attachments.append({
-                    "filename": part.get_filename() or "unnamed",
-                    "content_type": content_type,
-                    "size": len(payload) if payload else 0,
-                    "sha256": sha,
-                })
+                attachments.append(
+                    {
+                        "filename": part.get_filename() or "unnamed",
+                        "content_type": content_type,
+                        "size": len(payload) if payload else 0,
+                        "sha256": sha,
+                    }
+                )
             elif content_type == "text/plain":
                 try:
                     body_text = part.get_content()
@@ -169,13 +191,15 @@ def run_analyze_attachments(target: str) -> dict[str, Any]:
             if "attachment" in disp:
                 payload = part.get_payload(decode=True)
                 raw_bytes = payload if payload else b""
-                attachments.append({
-                    "filename": part.get_filename() or "unnamed",
-                    "content_type": part.get_content_type(),
-                    "size": len(raw_bytes),
-                    "sha256": hashlib.sha256(raw_bytes).hexdigest(),
-                    "md5": hashlib.md5(raw_bytes).hexdigest(),
-                })
+                attachments.append(
+                    {
+                        "filename": part.get_filename() or "unnamed",
+                        "content_type": part.get_content_type(),
+                        "size": len(raw_bytes),
+                        "sha256": hashlib.sha256(raw_bytes).hexdigest(),
+                        "md5": hashlib.md5(raw_bytes).hexdigest(),
+                    }
+                )
 
     return {
         "file": str(Path(target).absolute()),
@@ -185,25 +209,41 @@ def run_analyze_attachments(target: str) -> dict[str, Any]:
 
 
 _PHISHING_CHECKS = [
-    ("mismatched_from", lambda h, b, d: (
-        h.get("from", "") and h.get("return-path", "")
-        and _extract_domain(h.get("from", "")) != _extract_domain(h.get("return-path", ""))
-    )),
+    (
+        "mismatched_from",
+        lambda h, b, d: (
+            h.get("from", "")
+            and h.get("return-path", "")
+            and _extract_domain(h.get("from", "")) != _extract_domain(h.get("return-path", ""))
+        ),
+    ),
     ("suspicious_urls", lambda h, b, d: bool(re.search(r"https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", b))),
-    ("urgent_language", lambda h, b, d: bool(re.search(
-        r"(urgent|immediately|account.*suspend|verify.*account|click.*here.*confirm)", b, re.IGNORECASE
-    ))),
-    ("shortened_urls", lambda h, b, d: bool(re.search(
-        r"https?://(bit\.ly|tinyurl\.com|t\.co|ow\.ly|goo\.gl|is\.gd|buff\.ly)", b
-    ))),
+    (
+        "urgent_language",
+        lambda h, b, d: bool(
+            re.search(r"(urgent|immediately|account.*suspend|verify.*account|click.*here.*confirm)", b, re.IGNORECASE)
+        ),
+    ),
+    (
+        "shortened_urls",
+        lambda h, b, d: bool(re.search(r"https?://(bit\.ly|tinyurl\.com|t\.co|ow\.ly|goo\.gl|is\.gd|buff\.ly)", b)),
+    ),
     ("spf_fail", lambda h, b, d: "spf=fail" in d.get("auth_results", "").lower()),
     ("dkim_fail", lambda h, b, d: "dkim=fail" in d.get("auth_results", "").lower()),
-    ("suspicious_subject", lambda h, b, d: bool(re.search(
-        r"(free.*money|won.*prize|inheritance|lottery|claim.*now|act.*now)", h.get("subject", ""), re.IGNORECASE
-    ))),
-    ("generic_greeting", lambda h, b, d: bool(re.search(
-        r"^(dear\s+(sir|customer|user|client|member|valued))", b, re.IGNORECASE | re.MULTILINE
-    ))),
+    (
+        "suspicious_subject",
+        lambda h, b, d: bool(
+            re.search(
+                r"(free.*money|won.*prize|inheritance|lottery|claim.*now|act.*now)", h.get("subject", ""), re.IGNORECASE
+            )
+        ),
+    ),
+    (
+        "generic_greeting",
+        lambda h, b, d: bool(
+            re.search(r"^(dear\s+(sir|customer|user|client|member|valued))", b, re.IGNORECASE | re.MULTILINE)
+        ),
+    ),
 ]
 
 
@@ -280,14 +320,16 @@ def run_parse_mbox(target: str, max_messages: int = 200) -> dict[str, Any]:
     for i, msg in enumerate(mbox):
         if i >= max_messages:
             break
-        messages.append({
-            "index": i,
-            "subject": msg.get("Subject", ""),
-            "from": msg.get("From", ""),
-            "to": msg.get("To", ""),
-            "date": msg.get("Date", ""),
-            "message_id": msg.get("Message-ID", ""),
-        })
+        messages.append(
+            {
+                "index": i,
+                "subject": msg.get("Subject", ""),
+                "from": msg.get("From", ""),
+                "to": msg.get("To", ""),
+                "date": msg.get("Date", ""),
+                "message_id": msg.get("Message-ID", ""),
+            }
+        )
 
     return {
         "file": str(path.absolute()),

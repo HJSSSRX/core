@@ -9,13 +9,15 @@ class AuditTrail:
     _snapshots: list[str] = field(default_factory=list)
 
     def log(self, action: str, actor: str, target: str | None = None, details: dict | None = None):
-        self._entries.append({
-            "action": action,
-            "actor": actor,
-            "target": target,
-            "details": details or {},
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        })
+        self._entries.append(
+            {
+                "action": action,
+                "actor": actor,
+                "target": target,
+                "details": details or {},
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
 
     def snapshot(self, name: str):
         self._snapshots.append(name)

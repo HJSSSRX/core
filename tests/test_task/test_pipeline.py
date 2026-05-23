@@ -25,8 +25,10 @@ class MockLLMBackend(LLMBackend):
         return self._model
 
     async def complete(
-        self, messages: list[Message],
-        tools: list[dict[str, Any]] | None = None, **kwargs: Any,
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
     ) -> LLMResponse:
         self.complete_calls.append({"messages": messages, "tools": tools, "kwargs": kwargs})
         if self._yaml:
@@ -133,3 +135,18 @@ def test_pipeline_dag_state_persisted(case_dir, registry_with_tools, decompose_y
     content = dag_path.read_text()
     assert "memory-scan" in content
     assert "synthesize" in content
+
+
+def test_pipeline_with_kb_ingestion(case_dir, registry_with_tools, decompose_yaml):
+    from forhacker.kb.store import KBStore
+
+    llm = MockLLMBackend(decompose_yaml=decompose_yaml)
+    kb = KBStore(case_dir / "kb")
+    pipeline = Pipeline(case_dir=case_dir, llm=llm, registry=registry_with_tools, case_id="test", kb=kb)
+
+    report = asyncio.run(pipeline.run("analyze for kb"))
+
+    assert report.status == "completed"
+    # KB entries should have been auto-ingested for each task
+    entries = kb.list_all()
+    assert len(entries) >= 1

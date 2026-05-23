@@ -112,6 +112,7 @@ def test_pe_info_corrupt_header(tmp_path):
 
 def test_volatility3_pslist_stub():
     from cells.forensics_core.plugin import run_volatility3_pslist
+
     result = run_volatility3_pslist("memory.dmp")
     assert "error" in result
     assert "volatility3" in result["error"]

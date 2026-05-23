@@ -181,6 +181,7 @@ def rollback(change_id: str, confirm: bool):
         return
 
     import yaml
+
     meta_path = snapshot_dir / "snapshot_meta.yaml"
     meta: dict[str, Any] = {}
     if meta_path.exists():
@@ -214,4 +215,3 @@ def snapshots():
         click.echo(f"\n  Change ID: {s['change_id']}")
         click.echo(f"  Created: {s['created_at']}")
         click.echo(f"  Targets: {', '.join(s['target_dirs']) or '(none)'}")
-

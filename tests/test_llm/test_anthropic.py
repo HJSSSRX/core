@@ -24,12 +24,16 @@ def test_anthropic_detects_tool_role_messages():
 def test_anthropic_extracts_tool_use_blocks():
     """Verify _extract_tool_calls maps Anthropic tool_use blocks to standard format."""
     # Use dicts to mock Anthropic content blocks (avoid import dependency)
-    mock_block = type("MockBlock", (), {
-        "type": "tool_use",
-        "id": "tool_123",
-        "name": "search",
-        "input": {"query": "test"},
-    })
+    mock_block = type(
+        "MockBlock",
+        (),
+        {
+            "type": "tool_use",
+            "id": "tool_123",
+            "name": "search",
+            "input": {"query": "test"},
+        },
+    )
     result = AnthropicBackend._extract_tool_calls([mock_block])
     assert len(result) == 1
     assert result[0]["name"] == "search"

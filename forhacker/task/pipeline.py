@@ -35,8 +35,15 @@ class Pipeline:
         report = await pipeline.run("analyze memory dump for malware")
     """
 
-    def __init__(self, case_dir: Path, llm: LLMBackend, registry: CapabilityRegistry,
-                 case_id: str = "default", max_concurrency: int = 3, kb: KBStore | None = None):
+    def __init__(
+        self,
+        case_dir: Path,
+        llm: LLMBackend,
+        registry: CapabilityRegistry,
+        case_id: str = "default",
+        max_concurrency: int = 3,
+        kb: KBStore | None = None,
+    ):
         self._case_dir = case_dir
         self._llm = llm
         self._registry = registry
@@ -46,7 +53,10 @@ class Pipeline:
 
         self._engine = TaskEngine(case_dir=case_dir)
         self._supervisor = Supervisor(
-            engine=self._engine, registry=registry, case_id=case_id, llm=llm,
+            engine=self._engine,
+            registry=registry,
+            case_id=case_id,
+            llm=llm,
         )
         self._executor = SubAgentExecutor(llm=llm)
 
@@ -62,7 +72,11 @@ class Pipeline:
 
         if result["status"] == "error":
             return PipelineReport(
-                status="failed", goal=goal, total_tasks=0, completed=0, failed=0,
+                status="failed",
+                goal=goal,
+                total_tasks=0,
+                completed=0,
+                failed=0,
                 errors=[result.get("message", "Decomposition failed")],
             )
 
@@ -119,9 +133,13 @@ class Pipeline:
 
         status = "completed" if failed == 0 else ("partial" if completed > 0 else "failed")
         return PipelineReport(
-            status=status, goal=goal, total_tasks=total,
-            completed=completed, failed=failed,
-            findings=findings, errors=errors,
+            status=status,
+            goal=goal,
+            total_tasks=total,
+            completed=completed,
+            failed=failed,
+            findings=findings,
+            errors=errors,
         )
 
     def _ingest_to_kb(self, task_id: str, goal: str, findings: list[dict]) -> None:
@@ -131,8 +149,7 @@ class Pipeline:
             title=f"[{self._case_id}] {goal[:80]}",
             tags=["auto-ingest", self._case_id, task_id],
             source=f"case/{self._case_id}",
-            content=f"Task: {task_id}\nGoal: {goal}\n\nFindings:\n"
-                    + "\n".join(f"- {f}" for f in findings),
+            content=f"Task: {task_id}\nGoal: {goal}\n\nFindings:\n" + "\n".join(f"- {f}" for f in findings),
             confidence="medium",
         )
         self._kb.add(entry)

@@ -101,6 +101,7 @@ def test_evidence_verify_no_dir():
 
 def test_plugin_create(tmp_path):
     import shutil
+
     cells_dir = tmp_path / "cells"
     cells_dir.mkdir()
     # Create a minimal plugin.py so _discover_plugins doesn't crash
@@ -123,6 +124,7 @@ def test_plugin_create_already_exists():
     assert result.exit_code == 0
     # Clean up
     import shutil
+
     created = Path("cells") / "test_existing"
     if created.exists():
         shutil.rmtree(created)

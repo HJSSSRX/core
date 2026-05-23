@@ -3,9 +3,9 @@
 All tools use Python stdlib (sqlite3, json) — zero external dependencies.
 """
 
+import datetime
 import json
 import sqlite3
-import datetime
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -27,16 +27,36 @@ class BrowserForensicsPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="chrome_history", description="Parse Chrome/Chromium History SQLite database",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="firefox_history", description="Parse Firefox places.sqlite browsing history",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="chrome_cookies", description="Parse Chrome/Chromium Cookies SQLite database",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="browser_downloads", description="Parse browser download history from Chrome/Firefox",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="extract_bookmarks", description="Extract bookmarks from Chrome/Firefox JSON exports",
-                 domain="forensics", risk_level="LOW"),
+            Tool(
+                name="chrome_history",
+                description="Parse Chrome/Chromium History SQLite database",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="firefox_history",
+                description="Parse Firefox places.sqlite browsing history",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="chrome_cookies",
+                description="Parse Chrome/Chromium Cookies SQLite database",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="browser_downloads",
+                description="Parse browser download history from Chrome/Firefox",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="extract_bookmarks",
+                description="Extract bookmarks from Chrome/Firefox JSON exports",
+                domain="forensics",
+                risk_level="LOW",
+            ),
         ]
 
 
@@ -79,12 +99,14 @@ def run_chrome_history(target: str, max_rows: int = 200) -> dict[str, Any]:
 
     entries = []
     for r in rows:
-        entries.append({
-            "url": r.get("url", ""),
-            "title": r.get("title", ""),
-            "visit_count": r.get("visit_count", 0),
-            "last_visit": _chrome_time(r.get("last_visit_time", 0) or 0),
-        })
+        entries.append(
+            {
+                "url": r.get("url", ""),
+                "title": r.get("title", ""),
+                "visit_count": r.get("visit_count", 0),
+                "last_visit": _chrome_time(r.get("last_visit_time", 0) or 0),
+            }
+        )
 
     return {
         "file": str(path.absolute()),
@@ -117,12 +139,14 @@ def run_firefox_history(target: str, max_rows: int = 200) -> dict[str, Any]:
                 ts = datetime.datetime.fromtimestamp(r["last_visit_unix"], tz=timezone.utc).isoformat()
             except (ValueError, OSError):
                 ts = str(r["last_visit_unix"])
-        entries.append({
-            "url": r.get("url", ""),
-            "title": r.get("title", ""),
-            "visit_count": r.get("visit_count", 0),
-            "last_visit": ts,
-        })
+        entries.append(
+            {
+                "url": r.get("url", ""),
+                "title": r.get("title", ""),
+                "visit_count": r.get("visit_count", 0),
+                "last_visit": ts,
+            }
+        )
 
     return {
         "file": str(path.absolute()),
@@ -149,14 +173,16 @@ def run_chrome_cookies(target: str, max_rows: int = 200) -> dict[str, Any]:
 
     entries = []
     for r in rows:
-        entries.append({
-            "host": r.get("host_key", ""),
-            "name": r.get("name", ""),
-            "encrypted": bool(r.get("encrypted_value")),
-            "expires": _chrome_time(r.get("expires_utc", 0) or 0),
-            "secure": bool(r.get("is_secure")),
-            "httponly": bool(r.get("is_httponly")),
-        })
+        entries.append(
+            {
+                "host": r.get("host_key", ""),
+                "name": r.get("name", ""),
+                "encrypted": bool(r.get("encrypted_value")),
+                "expires": _chrome_time(r.get("expires_utc", 0) or 0),
+                "secure": bool(r.get("is_secure")),
+                "httponly": bool(r.get("is_httponly")),
+            }
+        )
 
     return {
         "file": str(path.absolute()),
@@ -186,16 +212,18 @@ def run_browser_downloads(target: str, max_rows: int = 200) -> dict[str, Any]:
     entries = []
     for r in rows:
         state = r.get("state", -1)
-        entries.append({
-            "path": r.get("target_path", ""),
-            "source_url": r.get("tab_url", ""),
-            "total_bytes": r.get("total_bytes", 0),
-            "received_bytes": r.get("received_bytes", 0),
-            "start_time": _chrome_time(r.get("start_time", 0) or 0),
-            "end_time": _chrome_time(r.get("end_time", 0) or 0),
-            "state": state_map.get(state, f"unknown({state})"),
-            "dangerous": r.get("danger_type", 0) > 0,
-        })
+        entries.append(
+            {
+                "path": r.get("target_path", ""),
+                "source_url": r.get("tab_url", ""),
+                "total_bytes": r.get("total_bytes", 0),
+                "received_bytes": r.get("received_bytes", 0),
+                "start_time": _chrome_time(r.get("start_time", 0) or 0),
+                "end_time": _chrome_time(r.get("end_time", 0) or 0),
+                "state": state_map.get(state, f"unknown({state})"),
+                "dangerous": r.get("danger_type", 0) > 0,
+            }
+        )
 
     return {
         "file": str(path.absolute()),
@@ -222,11 +250,13 @@ def run_extract_bookmarks(target: str, max_rows: int = 200) -> dict[str, Any]:
             return
         node_type = node.get("type", "")
         if node_type == "url" and node.get("url"):
-            bookmarks.append({
-                "name": node.get("name", ""),
-                "url": node.get("url", ""),
-                "date_added": _chrome_time(int(node.get("date_added", 0))),
-            })
+            bookmarks.append(
+                {
+                    "name": node.get("name", ""),
+                    "url": node.get("url", ""),
+                    "date_added": _chrome_time(int(node.get("date_added", 0))),
+                }
+            )
         elif node_type == "folder":
             for child in node.get("children", []):
                 _walk(child, depth + 1)

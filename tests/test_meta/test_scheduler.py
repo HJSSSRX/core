@@ -31,9 +31,7 @@ def test_scheduler_add_source(tmp_path):
 
 def test_scheduler_scan_with_custom_source(tmp_path):
     scheduler = MetaScheduler(kb_dir=tmp_path / "kb", proposals_dir=tmp_path / "proposals")
-    scheduler.add_source(
-        name="test-source", url="http://localhost:1/test", category="test"
-    )
+    scheduler.add_source(name="test-source", url="http://localhost:1/test", category="test")
     result = asyncio.run(scheduler.scan_once())
     assert result["sources_checked"] >= 1
 

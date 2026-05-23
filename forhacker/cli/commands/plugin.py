@@ -36,8 +36,7 @@ def _discover_plugins() -> PluginManager:
             module = importlib.import_module(module_path)
             for attr in dir(module):
                 obj = getattr(module, attr)
-                if (isinstance(obj, type) and issubclass(obj, BasePlugin)
-                        and obj is not BasePlugin):
+                if isinstance(obj, type) and issubclass(obj, BasePlugin) and obj is not BasePlugin:
                     manager.load_plugin(obj())
                     break
         except Exception as exc:
@@ -49,7 +48,6 @@ def _discover_plugins() -> PluginManager:
 def list_plugins():
     """List installed plugins and their tools."""
     manager = _discover_plugins()
-    registry = manager._registry
 
     if not manager.loaded_plugins:
         click.echo("No plugins installed. Create one in cells/<name>/plugin.py")
@@ -90,10 +88,12 @@ def install(name: str):
                 click.echo(f"Plugin '{name}' already installed at {target}")
                 return
             import subprocess
+
             click.echo(f"Cloning {repo} into cells/{name} ...")
             result = subprocess.run(
                 ["git", "clone", repo, str(target)],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             if result.returncode == 0:
                 click.echo(f"Plugin '{name}' installed successfully.")
@@ -189,15 +189,15 @@ def create(name: str, domain: str):
 
     # plugin.py
     plugin_content = PLUGIN_SKELETON.format(
-        name=name, domain=domain, class_name=class_name,
+        name=name,
+        domain=domain,
+        class_name=class_name,
         description=f"Cell plugin: {name}",
     )
     (target / "plugin.py").write_text(plugin_content, encoding="utf-8")
 
     # TUTORIAL.md
-    (target / "TUTORIAL.md").write_text(
-        TUTORIAL_SKELETON.format(name=name), encoding="utf-8"
-    )
+    (target / "TUTORIAL.md").write_text(TUTORIAL_SKELETON.format(name=name), encoding="utf-8")
 
     # README.md
     (target / "README.md").write_text(f"# {name}\n\nCell plugin for ForHacker.\n", encoding="utf-8")

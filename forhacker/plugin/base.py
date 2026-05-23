@@ -17,5 +17,4 @@ class BasePlugin(ABC):
     risk_levels: dict[str, str]  # tool_name → LOW|MEDIUM|HIGH
 
     @abstractmethod
-    def register_tools(self) -> list[Tool]:
-        ...
+    def register_tools(self) -> list[Tool]: ...

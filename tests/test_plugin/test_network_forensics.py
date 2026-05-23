@@ -33,7 +33,7 @@ def test_pcap_summary_too_small():
 
 def test_pcap_summary_basic():
     # Build a minimal valid PCAP (little-endian)
-    header = bytes.fromhex("D4C3B2A1" "0200" "0400" "00000000" "00000000" "00000400" "01000000")
+    header = bytes.fromhex("D4C3B2A10200040000000000000000000000040001000000")
     # Packet header: ts_sec=0, ts_usec=0, incl_len=0, orig_len=0
     pkt_header = bytes(16)
     data = header + pkt_header
@@ -117,7 +117,7 @@ def test_pcap_summary_not_found():
 
 def test_pcap_summary_big_endian():
     # Build a minimal valid PCAP (big-endian)
-    header = bytes.fromhex("A1B2C3D4" "0002" "0004" "00000000" "00000000" "00040000" "00000001")
+    header = bytes.fromhex("A1B2C3D40002000400000000000000000004000000000001")
     pkt_header = bytes(16)
     data = header + pkt_header
     with tempfile.NamedTemporaryFile(suffix=".pcap", delete=False) as f:
@@ -131,7 +131,7 @@ def test_pcap_summary_big_endian():
 
 def test_pcap_summary_nanosecond():
     # Build a minimal valid nanosecond PCAP (little-endian)
-    header = bytes.fromhex("4D3CB2A1" "0200" "0400" "00000000" "00000000" "00000400" "01000000")
+    header = bytes.fromhex("4D3CB2A10200040000000000000000000000040001000000")
     pkt_header = bytes(16)
     data = header + pkt_header
     with tempfile.NamedTemporaryFile(suffix=".pcap", delete=False) as f:

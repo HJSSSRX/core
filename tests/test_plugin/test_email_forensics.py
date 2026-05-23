@@ -1,12 +1,9 @@
 """Tests for Email Forensics Cell plugin tools."""
 
-import email
-import hashlib
-import mailbox
 import tempfile
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
 from pathlib import Path
 
 from cells.email_forensics.plugin import (
@@ -19,8 +16,9 @@ from cells.email_forensics.plugin import (
 )
 
 
-def _make_eml(subject="Test Email", from_addr="sender@example.com",
-              to_addr="recipient@example.com", body="Hello world.") -> str:
+def _make_eml(
+    subject="Test Email", from_addr="sender@example.com", to_addr="recipient@example.com", body="Hello world."
+) -> str:
     """Create a temporary .eml file and return its path."""
     msg = MIMEText(body)
     msg["Subject"] = subject
@@ -55,10 +53,12 @@ def _make_multipart_eml() -> str:
 
 def _make_phishing_eml() -> str:
     """Create a .eml with phishing indicators."""
-    msg = MIMEText("Dear valued customer,\n\n"
-                   "Your account has been suspended. Click here to verify:\n"
-                   "https://192.168.1.1/verify\n\n"
-                   "Act now or lose access!\n")
+    msg = MIMEText(
+        "Dear valued customer,\n\n"
+        "Your account has been suspended. Click here to verify:\n"
+        "https://192.168.1.1/verify\n\n"
+        "Act now or lose access!\n"
+    )
     msg["Subject"] = "URGENT: Verify your account immediately"
     msg["From"] = "support@paypa1.com"
     msg["To"] = "victim@example.com"
@@ -96,6 +96,7 @@ def _make_mbox() -> str:
 
 # === Plugin Registration ===
 
+
 def test_plugin_registration():
     plugin = EmailForensicsPlugin()
     tools = plugin.register_tools()
@@ -107,6 +108,7 @@ def test_plugin_registration():
 
 
 # === Parse EML ===
+
 
 def test_parse_eml_basic():
     path = _make_eml()
@@ -133,6 +135,7 @@ def test_parse_eml_not_found():
 
 # === Extract Headers ===
 
+
 def test_extract_email_headers():
     path = _make_eml()
     result = run_extract_email_headers(path)
@@ -150,6 +153,7 @@ def test_extract_email_headers_not_found():
 
 # === Analyze Attachments ===
 
+
 def test_analyze_attachments():
     path = _make_multipart_eml()
     result = run_analyze_attachments(path)
@@ -165,6 +169,7 @@ def test_analyze_attachments_not_found():
 
 
 # === Phishing Detection ===
+
 
 def test_detect_phishing_indicators():
     path = _make_phishing_eml()
@@ -189,6 +194,7 @@ def test_detect_phishing_not_found():
 
 
 # === Parse Mbox ===
+
 
 def test_parse_mbox_basic():
     path = _make_mbox()

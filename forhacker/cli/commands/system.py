@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import click
@@ -70,8 +69,7 @@ def status():
     # Evidence
     evidence_dir = Path("shared/evidence")
     if evidence_dir.exists():
-        total_evidence = len(list(evidence_dir.rglob("*"))) if evidence_dir.exists() else 0
-        click.echo(f"[Evidence] shared/evidence/ present")
+        click.echo("[Evidence] shared/evidence/ present")
     else:
         click.echo("[Evidence] Not initialized")
     click.echo()
@@ -89,14 +87,16 @@ def status():
 @system_group.command()
 def env():
     """Show environment information for debugging."""
-    import sys
     import platform
+    import sys
+
     click.echo(f"Python: {sys.version}")
     click.echo(f"Platform: {platform.platform()}")
     click.echo(f"cwd: {Path.cwd()}")
 
     # Check uv
     import shutil
+
     uv_path = shutil.which("uv")
     click.echo(f"uv: {uv_path or 'NOT FOUND'}")
 

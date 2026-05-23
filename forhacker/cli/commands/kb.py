@@ -52,8 +52,8 @@ def add(title: str, tag: tuple[str, ...], source: str, content: str, confidence:
     click.echo(f"Entry [{entry.id}] saved to {path}")
 
 
-@kb_group.command()
-def list():
+@kb_group.command(name="list")
+def list_entries():
     """List all knowledge base entries."""
     store = KBStore(KB_DIR)
     entries = store.list_all()

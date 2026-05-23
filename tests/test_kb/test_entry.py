@@ -2,8 +2,14 @@ from forhacker.kb.entry import KBEntry
 
 
 def test_entry_to_frontmatter_md():
-    entry = KBEntry(id="abc123", title="Test Entry", tags=["forensics", "memory"],
-                    source="case/test", content="Analysis findings here.", confidence="high")
+    entry = KBEntry(
+        id="abc123",
+        title="Test Entry",
+        tags=["forensics", "memory"],
+        source="case/test",
+        content="Analysis findings here.",
+        confidence="high",
+    )
     md = entry.to_frontmatter_md()
     assert md.startswith("---")
     assert "Test Entry" in md

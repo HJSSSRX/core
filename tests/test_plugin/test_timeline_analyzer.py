@@ -16,16 +16,41 @@ from cells.timeline_analyzer.plugin import (
 )
 
 SAMPLE_EVENTS = [
-    {"timestamp": "2024-01-15T10:00:00Z", "source": "browser", "type": "visit",
-     "description": "Visited https://example.com", "artifact": "Chrome history"},
-    {"timestamp": "2024-01-15T10:30:00Z", "source": "registry", "type": "run_key",
-     "description": "Malware.exe added to Run key", "artifact": "HKLM\\...\\Run"},
-    {"timestamp": "2024-01-15T12:00:00Z", "source": "filesystem", "type": "create",
-     "description": "Created C:\\Temp\\payload.exe", "artifact": "payload.exe"},
-    {"timestamp": "2024-01-15T10:00:01Z", "source": "browser", "type": "visit",
-     "description": "Visited https://example.com", "artifact": "Chrome history"},
-    {"timestamp": "2024-01-16T08:00:00Z", "source": "email", "type": "received",
-     "description": "Phishing email received", "artifact": "phish.eml"},
+    {
+        "timestamp": "2024-01-15T10:00:00Z",
+        "source": "browser",
+        "type": "visit",
+        "description": "Visited https://example.com",
+        "artifact": "Chrome history",
+    },
+    {
+        "timestamp": "2024-01-15T10:30:00Z",
+        "source": "registry",
+        "type": "run_key",
+        "description": "Malware.exe added to Run key",
+        "artifact": "HKLM\\...\\Run",
+    },
+    {
+        "timestamp": "2024-01-15T12:00:00Z",
+        "source": "filesystem",
+        "type": "create",
+        "description": "Created C:\\Temp\\payload.exe",
+        "artifact": "payload.exe",
+    },
+    {
+        "timestamp": "2024-01-15T10:00:01Z",
+        "source": "browser",
+        "type": "visit",
+        "description": "Visited https://example.com",
+        "artifact": "Chrome history",
+    },
+    {
+        "timestamp": "2024-01-16T08:00:00Z",
+        "source": "email",
+        "type": "received",
+        "description": "Phishing email received",
+        "artifact": "phish.eml",
+    },
 ]
 
 GAPPED_EVENTS = [
@@ -44,6 +69,7 @@ def _write_events(events, suffix=".json") -> str:
 
 # === Plugin Registration ===
 
+
 def test_plugin_registration():
     plugin = TimelineAnalyzerPlugin()
     tools = plugin.register_tools()
@@ -55,6 +81,7 @@ def test_plugin_registration():
 
 
 # === Timestamp Parsing ===
+
 
 def test_parse_timestamp_iso():
     result = _parse_timestamp("2024-01-15T10:30:00Z")
@@ -77,6 +104,7 @@ def test_parse_timestamp_invalid():
 
 # === Text Similarity ===
 
+
 def test_text_similarity_equal():
     assert _text_similarity("hello world", "hello world") == 1.0
 
@@ -92,6 +120,7 @@ def test_text_similarity_empty():
 
 
 # === Build Timeline ===
+
 
 def test_build_timeline():
     path = _write_events(SAMPLE_EVENTS)
@@ -127,6 +156,7 @@ def test_build_timeline_invalid_json(tmp_path):
 
 # === Detect Gaps ===
 
+
 def test_detect_timeline_gaps():
     path = _write_events(GAPPED_EVENTS)
     result = run_detect_timeline_gaps(path, threshold_hours=1)
@@ -140,6 +170,7 @@ def test_detect_timeline_gaps_not_found():
 
 
 # === Correlate Events ===
+
 
 def test_correlate_events():
     path = _write_events(SAMPLE_EVENTS)
@@ -162,6 +193,7 @@ def test_correlate_events_not_found():
 
 # === Deduplicate ===
 
+
 def test_deduplicate_events():
     path = _write_events(SAMPLE_EVENTS)
     result = run_deduplicate_events(path, time_tolerance_seconds=5)
@@ -177,6 +209,7 @@ def test_deduplicate_events_not_found():
 
 
 # === Export CSV ===
+
 
 def test_export_timeline_csv():
     path = _write_events(SAMPLE_EVENTS)

@@ -59,8 +59,7 @@ class MetaScheduler:
 
         if code_issues:
             issues_summary = "\n".join(
-                f"- [{i.severity}] {i.file}:{i.line} — {i.description}"
-                for i in code_issues[:10]
+                f"- [{i.severity}] {i.file}:{i.line} — {i.description}" for i in code_issues[:10]
             )
             opt_proposal = Proposal(
                 title="[Platform Optimizer] Code quality issues detected",
@@ -77,8 +76,12 @@ class MetaScheduler:
                 self._save_proposal(opt_proposal)
 
         # Report platform state
-        logger.info("Platform state: %d plugins, %d KB entries, %d test files",
-                     len(plugin_info), metrics.get("kb_entry_count", 0), metrics.get("test_count", 0))
+        logger.info(
+            "Platform state: %d plugins, %d KB entries, %d test files",
+            len(plugin_info),
+            metrics.get("kb_entry_count", 0),
+            metrics.get("test_count", 0),
+        )
 
         self._agent.evaluator.record_day(candidates=candidates, passed=passed)
         self._last_scan["timestamp"] = datetime.now(timezone.utc).isoformat()
@@ -97,6 +100,7 @@ class MetaScheduler:
 
     def _save_proposal(self, proposal: Proposal) -> None:
         import yaml
+
         filename = f"{proposal.title[:40].replace(' ', '_').replace('/', '_')}.yaml"
         path = self._proposals_dir / filename
         data = {
@@ -114,6 +118,7 @@ class MetaScheduler:
 
     def list_pending_proposals(self) -> list[dict[str, Any]]:
         import yaml
+
         proposals = []
         for p in sorted(self._proposals_dir.glob("*.yaml")):
             proposals.append(yaml.safe_load(p.read_text(encoding="utf-8")))
@@ -147,8 +152,10 @@ class MetaScheduler:
             "target_dirs": [str(d) for d in target_dirs],
         }
         import yaml
+
         (snapshot_dir / "snapshot_meta.yaml").write_text(
-            yaml.dump(meta, allow_unicode=True), encoding="utf-8",
+            yaml.dump(meta, allow_unicode=True),
+            encoding="utf-8",
         )
 
         logger.info("Snapshot created: %s (%d dirs)", change_id, len(target_dirs))
@@ -161,6 +168,7 @@ class MetaScheduler:
             return {"status": "error", "message": f"No snapshot found for change '{change_id}'"}
 
         import yaml
+
         meta_path = snapshot_dir / "snapshot_meta.yaml"
         meta: dict[str, Any] = {}
         if meta_path.exists():
@@ -209,6 +217,7 @@ class MetaScheduler:
         if not snapshots_dir.exists():
             return []
         import yaml
+
         results = []
         for d in sorted(snapshots_dir.iterdir()):
             if d.is_dir():
@@ -216,9 +225,11 @@ class MetaScheduler:
                 meta_path = d / "snapshot_meta.yaml"
                 if meta_path.exists():
                     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
-                results.append({
-                    "change_id": d.name,
-                    "created_at": meta.get("created_at", "unknown"),
-                    "target_dirs": meta.get("target_dirs", []),
-                })
+                results.append(
+                    {
+                        "change_id": d.name,
+                        "created_at": meta.get("created_at", "unknown"),
+                        "target_dirs": meta.get("target_dirs", []),
+                    }
+                )
         return results

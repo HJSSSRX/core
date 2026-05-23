@@ -22,14 +22,30 @@ class LogParserPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="parse_csv", description="Parse CSV/TSV log files with header detection",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="parse_jsonl", description="Parse JSON-lines (NDJSON) log files",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="parse_iis_log", description="Parse Microsoft IIS W3C log format",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="parse_evtx", description="Parse Windows Event Log (.evtx) files",
-                 domain="forensics", risk_level="MEDIUM"),
+            Tool(
+                name="parse_csv",
+                description="Parse CSV/TSV log files with header detection",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="parse_jsonl",
+                description="Parse JSON-lines (NDJSON) log files",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="parse_iis_log",
+                description="Parse Microsoft IIS W3C log format",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="parse_evtx",
+                description="Parse Windows Event Log (.evtx) files",
+                domain="forensics",
+                risk_level="MEDIUM",
+            ),
         ]
 
 
@@ -138,8 +154,9 @@ def run_parse_evtx(target: str, max_rows: int = 200) -> dict[str, Any]:
     with Evtx(target) as evtx:
         for record in evtx.records():
             try:
-                events.append({"event_id": record.event_id(), "timestamp": str(record.timestamp()),
-                               "xml": record.xml()})
+                events.append(
+                    {"event_id": record.event_id(), "timestamp": str(record.timestamp()), "xml": record.xml()}
+                )
             except Exception:
                 events.append({"error": "failed to parse record"})
             if len(events) >= max_rows:

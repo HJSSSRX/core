@@ -21,10 +21,7 @@ class Evaluator:
         self._daily_history: deque[dict] = deque(maxlen=7)
 
     def passes(self, proposal: Proposal) -> bool:
-        return (
-            proposal.relevance_score >= self.relevance_threshold
-            and proposal.quality_score >= self.quality_threshold
-        )
+        return proposal.relevance_score >= self.relevance_threshold and proposal.quality_score >= self.quality_threshold
 
     def record_day(self, candidates: int, passed: int):
         self._daily_history.append({"candidates": candidates, "passed": passed})

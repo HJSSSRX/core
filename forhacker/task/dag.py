@@ -91,10 +91,7 @@ class DAG:
         for node in self.tasks.values():
             if node.status != "pending":
                 continue
-            deps_satisfied = all(
-                self.tasks.get(dep) and self.tasks[dep].status == "done"
-                for dep in node.depends_on
-            )
+            deps_satisfied = all(self.tasks.get(dep) and self.tasks[dep].status == "done" for dep in node.depends_on)
             if deps_satisfied:
                 ready.append(node)
         return ready

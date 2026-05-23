@@ -32,6 +32,7 @@ class TaskEngine:
                 data = yaml.safe_load(self._dag_path.read_text(encoding="utf-8")) or {}
             except yaml.YAMLError:
                 import logging
+
                 logging.getLogger(__name__).warning(
                     "Corrupted dag_state.yaml at %s, falling back to empty DAG", self._dag_path
                 )
@@ -78,15 +79,17 @@ class TaskEngine:
     def _write_through(self):
         tasks_data = []
         for node in self._dag.tasks.values():
-            tasks_data.append({
-                "task_id": node.task_id,
-                "type": node.type,
-                "depends_on": node.depends_on,
-                "status": node.status,
-                "assigned_to": node.assigned_to,
-                "confidence": node.confidence,
-                "artifacts": node.artifacts,
-            })
+            tasks_data.append(
+                {
+                    "task_id": node.task_id,
+                    "type": node.type,
+                    "depends_on": node.depends_on,
+                    "status": node.status,
+                    "assigned_to": node.assigned_to,
+                    "confidence": node.confidence,
+                    "artifacts": node.artifacts,
+                }
+            )
         payload = yaml.dump({"schema_version": 1, "tasks": tasks_data}, allow_unicode=True)
         # Atomic write: temp file + rename
         tmp_path = self._dag_path.with_suffix(".tmp")

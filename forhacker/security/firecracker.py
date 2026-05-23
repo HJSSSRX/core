@@ -21,6 +21,7 @@ class FirecrackerSandbox(Sandbox):
 
     def __init__(self, kernel_path: str = "", rootfs_path: str = "", timeout: float = 600.0):
         import platform
+
         if platform.system() != "Linux":
             raise RuntimeError(
                 f"FirecrackerSandbox requires Linux with KVM. "
@@ -28,6 +29,7 @@ class FirecrackerSandbox(Sandbox):
                 f"Use DockerSandbox for non-Linux environments."
             )
         import shutil
+
         if not shutil.which("firecracker"):
             raise RuntimeError("firecracker binary not found on PATH")
         if not kernel_path or not rootfs_path:

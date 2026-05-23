@@ -27,16 +27,36 @@ class TimelineAnalyzerPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="build_timeline", description="Build a unified chronological timeline from JSON event data",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="detect_timeline_gaps", description="Detect time gaps in a timeline that may indicate tampering",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="correlate_events", description="Correlate events by time window proximity",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="deduplicate_events", description="Deduplicate timeline events by time and content similarity",
-                 domain="forensics", risk_level="LOW"),
-            Tool(name="export_timeline_csv", description="Export a timeline to CSV format",
-                 domain="forensics", risk_level="LOW"),
+            Tool(
+                name="build_timeline",
+                description="Build a unified chronological timeline from JSON event data",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="detect_timeline_gaps",
+                description="Detect time gaps in a timeline that may indicate tampering",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="correlate_events",
+                description="Correlate events by time window proximity",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="deduplicate_events",
+                description="Deduplicate timeline events by time and content similarity",
+                domain="forensics",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="export_timeline_csv",
+                description="Export a timeline to CSV format",
+                domain="forensics",
+                risk_level="LOW",
+            ),
         ]
 
 
@@ -95,13 +115,15 @@ def run_build_timeline(target: str) -> dict[str, Any]:
         ts = evt.get("timestamp", "")
         dt = _parse_timestamp(str(ts))
         if dt:
-            parsed.append({
-                "timestamp": dt.isoformat(),
-                "source": evt.get("source", "unknown"),
-                "type": evt.get("type", ""),
-                "description": evt.get("description", ""),
-                "artifact": evt.get("artifact", ""),
-            })
+            parsed.append(
+                {
+                    "timestamp": dt.isoformat(),
+                    "source": evt.get("source", "unknown"),
+                    "type": evt.get("type", ""),
+                    "description": evt.get("description", ""),
+                    "artifact": evt.get("artifact", ""),
+                }
+            )
         else:
             unparseable += 1
 
@@ -137,13 +159,15 @@ def run_detect_timeline_gaps(target: str, threshold_hours: int = 1) -> dict[str,
     for i in range(1, len(parsed)):
         delta = (parsed[i][0] - parsed[i - 1][0]).total_seconds() / 3600
         if delta > threshold_hours:
-            gaps.append({
-                "gap_start": parsed[i - 1][0].isoformat(),
-                "gap_end": parsed[i][0].isoformat(),
-                "duration_hours": round(delta, 2),
-                "event_before": parsed[i - 1][1].get("description", "")[:100],
-                "event_after": parsed[i][1].get("description", "")[:100],
-            })
+            gaps.append(
+                {
+                    "gap_start": parsed[i - 1][0].isoformat(),
+                    "gap_end": parsed[i][0].isoformat(),
+                    "duration_hours": round(delta, 2),
+                    "event_before": parsed[i - 1][1].get("description", "")[:100],
+                    "event_after": parsed[i][1].get("description", "")[:100],
+                }
+            )
 
     return {
         "file": str(Path(target).absolute()),
@@ -178,28 +202,41 @@ def run_correlate_events(target: str, window_minutes: int = 5) -> dict[str, Any]
             current_cluster.append(parsed[i])
         else:
             if len(current_cluster) >= 2:
-                clusters.append({
-                    "time_start": current_cluster[0][0].isoformat(),
-                    "time_end": current_cluster[-1][0].isoformat(),
-                    "count": len(current_cluster),
-                    "sources": list({evt.get("source", "") for _, evt in current_cluster}),
-                    "events": [{
-                        "timestamp": dt.isoformat(),
-                        "source": evt.get("source", ""),
-                        "description": evt.get("description", "")[:120],
-                    } for dt, evt in current_cluster],
-                })
+                clusters.append(
+                    {
+                        "time_start": current_cluster[0][0].isoformat(),
+                        "time_end": current_cluster[-1][0].isoformat(),
+                        "count": len(current_cluster),
+                        "sources": list({evt.get("source", "") for _, evt in current_cluster}),
+                        "events": [
+                            {
+                                "timestamp": dt.isoformat(),
+                                "source": evt.get("source", ""),
+                                "description": evt.get("description", "")[:120],
+                            }
+                            for dt, evt in current_cluster
+                        ],
+                    }
+                )
             current_cluster = [parsed[i]]
 
     if len(current_cluster) >= 2:
-        clusters.append({
-            "time_start": current_cluster[0][0].isoformat(),
-            "time_end": current_cluster[-1][0].isoformat(),
-            "count": len(current_cluster),
-            "sources": list({evt.get("source", "") for _, evt in current_cluster}),
-            "events": [{"timestamp": dt.isoformat(), "source": evt.get("source", ""),
-                        "description": evt.get("description", "")[:120]} for dt, evt in current_cluster],
-        })
+        clusters.append(
+            {
+                "time_start": current_cluster[0][0].isoformat(),
+                "time_end": current_cluster[-1][0].isoformat(),
+                "count": len(current_cluster),
+                "sources": list({evt.get("source", "") for _, evt in current_cluster}),
+                "events": [
+                    {
+                        "timestamp": dt.isoformat(),
+                        "source": evt.get("source", ""),
+                        "description": evt.get("description", "")[:120],
+                    }
+                    for dt, evt in current_cluster
+                ],
+            }
+        )
 
     return {
         "file": str(Path(target).absolute()),
@@ -237,12 +274,14 @@ def run_deduplicate_events(target: str, time_tolerance_seconds: float = 1.0) -> 
         sim = _text_similarity(prev_desc, curr_desc)
 
         if time_diff <= time_tolerance_seconds and sim > 0.7:
-            duplicates.append({
-                "timestamp": curr_dt.isoformat(),
-                "description": curr_desc[:120],
-                "similar_to": prev_desc[:120],
-                "similarity": round(sim, 3),
-            })
+            duplicates.append(
+                {
+                    "timestamp": curr_dt.isoformat(),
+                    "description": curr_desc[:120],
+                    "similar_to": prev_desc[:120],
+                    "similarity": round(sim, 3),
+                }
+            )
         else:
             unique.append(parsed[i])
 
@@ -252,11 +291,14 @@ def run_deduplicate_events(target: str, time_tolerance_seconds: float = 1.0) -> 
         "deduplicated_count": len(unique),
         "duplicates_removed": len(duplicates),
         "duplicates": duplicates[:100],
-        "events": [{
-            "timestamp": dt.isoformat(),
-            "source": evt.get("source", ""),
-            "description": evt.get("description", "")[:200],
-        } for dt, evt in unique[:500]],
+        "events": [
+            {
+                "timestamp": dt.isoformat(),
+                "source": evt.get("source", ""),
+                "description": evt.get("description", "")[:200],
+            }
+            for dt, evt in unique[:500]
+        ],
     }
 
 
@@ -266,8 +308,8 @@ def _text_similarity(a: str, b: str) -> float:
         return 0.0
     if a == b:
         return 1.0
-    a_bigrams = {a[i:i + 2] for i in range(len(a) - 1)}
-    b_bigrams = {b[i:i + 2] for i in range(len(b) - 1)}
+    a_bigrams = {a[i : i + 2] for i in range(len(a) - 1)}
+    b_bigrams = {b[i : i + 2] for i in range(len(b) - 1)}
     if not a_bigrams or not b_bigrams:
         return 0.0
     intersection = a_bigrams & b_bigrams
@@ -293,13 +335,15 @@ def run_export_timeline_csv(target: str) -> dict[str, Any]:
     parsed.sort(key=lambda x: x[0])
 
     for dt, evt in parsed:
-        writer.writerow([
-            dt.isoformat(),
-            evt.get("source", ""),
-            evt.get("type", ""),
-            evt.get("description", ""),
-            evt.get("artifact", ""),
-        ])
+        writer.writerow(
+            [
+                dt.isoformat(),
+                evt.get("source", ""),
+                evt.get("type", ""),
+                evt.get("description", ""),
+                evt.get("artifact", ""),
+            ]
+        )
 
     return {
         "file": str(Path(target).absolute()),

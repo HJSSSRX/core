@@ -93,12 +93,14 @@ def test_detect_startup_entries():
 
 def test_detect_usb_history_empty():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".reg", delete=False, encoding="utf-8") as f:
-        f.write("Windows Registry Editor Version 5.00\n\n"
-                "[HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0781&PID_5591\\123456]\n"
-                '"DeviceDesc"="@usbstor.inf,%usb\\\\class_08.devicedesc%;USB Mass Storage Device"\n'
-                "\n"
-                "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run]\n"
-                '"TestApp"="C:\\\\Test\\\\app.exe"\n')
+        f.write(
+            "Windows Registry Editor Version 5.00\n\n"
+            "[HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Enum\\USB\\VID_0781&PID_5591\\123456]\n"
+            '"DeviceDesc"="@usbstor.inf,%usb\\\\class_08.devicedesc%;USB Mass Storage Device"\n'
+            "\n"
+            "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run]\n"
+            '"TestApp"="C:\\\\Test\\\\app.exe"\n'
+        )
         f.flush()
         path = f.name
     result = run_detect_usb_history(path)
@@ -108,9 +110,11 @@ def test_detect_usb_history_empty():
 
 def test_detect_recent_files_empty():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".reg", delete=False, encoding="utf-8") as f:
-        f.write("Windows Registry Editor Version 5.00\n\n"
-                "[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RecentDocs\\.txt]\n"
-                '"0"="report.txt"\n')
+        f.write(
+            "Windows Registry Editor Version 5.00\n\n"
+            "[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RecentDocs\\.txt]\n"
+            '"0"="report.txt"\n'
+        )
         f.flush()
         path = f.name
     result = run_detect_recent_files(path)

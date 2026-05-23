@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计日志 — forhacker 项目重构</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --yellow: #d2991d; --red: #f85149; --tag-bg: #1c2128; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; padding: 2rem; max-width: 1000px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin: 2rem 0 0.8rem; padding: 0.4rem 0.8rem; background: var(--card); border-radius: 6px; border-left: 4px solid var(--accent); }
+  h3 { font-size: 1rem; color: var(--text); margin: 1.2rem 0 0.5rem; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+  .decision { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 1rem 1.2rem; margin: 0.8rem 0; }
+  .decision.confirmed { border-left: 3px solid var(--green); }
+  .decision.pending { border-left: 3px solid var(--yellow); }
+  .decision-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+  .decision-id { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
+  .decision-status { font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; }
+  .confirmed .decision-status { background: rgba(63,185,80,0.15); color: var(--green); }
+  .pending .decision-status { background: rgba(210,153,29,0.15); color: var(--yellow); }
+  .decision-body p { margin-bottom: 0.4rem; }
+  .decision-rationale { color: var(--muted); font-size: 0.85rem; font-style: italic; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+  .tag { display: inline-block; background: var(--tag-bg); color: var(--accent); border: 1px solid var(--border); border-radius: 4px; padding: 0.1rem 0.5rem; font-size: 0.75rem; margin-right: 0.3rem; }
+  .summary-box { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  .summary-box h3 { margin-top: 0; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+  th, td { padding: 0.5rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; font-size: 0.85rem; }
+  td { font-size: 0.9rem; }
+  .phase-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .phase-done { background: rgba(63,185,80,0.15); color: var(--green); }
+  .phase-active { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .phase-pending { background: rgba(139,148,158,0.15); color: var(--muted); }
+  .flow-chart { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 1.2rem; margin: 1rem 0; font-family: 'Courier New', monospace; font-size: 0.85rem; line-height: 1.8; white-space: pre; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>设计日志 — forhacker AI电子取证平台</h1>
+<div class="meta">
+  <strong>项目:</strong> forhacker — AI-Native Digital Forensics Platform<br>
+  <strong>开始日期:</strong> 2026-05-20<br>
+  <strong>最后更新:</strong> 2026-05-21<br>
+  <strong>当前阶段:</strong>
+  <span class="phase-badge phase-done">Phase A ✓</span>
+  <span class="phase-badge phase-done">Phase B ✓</span>
+  <span class="phase-badge phase-active">Plan ○</span>
+</div>
+
+<div class="summary-box">
+  <h3>项目概要</h3>
+  <table>
+    <tr><th style="width:120px">项目定位</th><td>应对网络犯罪的综合AI平台：信息收集 + 大数据 + 渗透测试 + 电子取证 + CTF</td></tr>
+    <tr><th>核心架构</th><td>统一核心框架 + 领域插件（Supervisor多Agent协作 + DAG任务引擎）</td></tr>
+    <tr><th>技术栈</th><td>Python 3.12 主体 + Rust (PyO3) 性能层</td></tr>
+    <tr><th>团队规模</th><td>~10人（湖南警察学院），水平不一，每周2×2h线下同步</td></tr>
+    <tr><th>历史教训</th><td>旧项目缺乏架构规划、臃肿、无法协作 — 本次从零开始，注重架构设计</td></tr>
+    <tr><th>预计规模</th><td>~73个文件，~8,200 LOC，5个实施阶段</td></tr>
+  </table>
+</div>
+
+<h2>Phase A — 架构对齐决策（22项，全部已确认）</h2>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q1 — 项目覆盖范围</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C扩展 — 信息收集 + 大数据 + 渗透测试 + 电子取证 + CTF，定位为"应对网络犯罪的综合平台"</p>
+  </div>
+  <div class="decision-rationale">扩展范围，不局限于单一取证领域，打造安全从业者的一站式平台</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q2 — 范围分解与组织方式</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项A — 统一核心 + 领域插件</p>
+  </div>
+  <div class="decision-rationale">轻量 Agent 调度核心 + 各领域独立插件，避免旧项目臃肿问题，支持并行开发</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q3 — Agent 架构模式</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项B — Supervisor 多Agent协作模式（调度Agent分解分配，专业子Agent各司其职）</p>
+  </div>
+  <div class="decision-rationale">取证任务有自然的分解层次，DAG 比 P2P mesh 更适合</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q4 — 核心技术栈</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — Python 3.12 主体 + Rust (PyO3) 性能扩展</p>
+  </div>
+  <div class="decision-rationale">Python 有最好的 AI/取证/安全工具生态，Rust 处理大数据和文件解析的性能瓶颈</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q5 — 插件系统设计</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — Python 抽象类 + MCP Server 双模</p>
+  </div>
+  <div class="decision-rationale">内部深度集成用 Python ABC，外部 AI 生态对接用标准 MCP 协议</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q6 — LLM 后端策略</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — 统一 LLMBackend 抽象层 + 全局离线开关</p>
+    <p>支持: OpenAI / Anthropic / DeepSeek / Ollama / vLLM。Agent 代码完全不感知后端差异。Sensitivity 路由：高敏感→本地模型，低敏感→云端，<code>FORHACKER_OFFLINE=1</code> 全局覆盖</p>
+  </div>
+  <div class="decision-rationale">一套代码覆盖所有场景（比赛在线/决赛离线/开发/训练/真实案件）</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q7 — Agent 间通信协议</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — MessageBus 抽象层，默认进程内 InProcessBus，可选 Redis/NATS 分布式</p>
+  </div>
+  <div class="decision-rationale">与 LLM 层、插件层一致的抽象哲学：抽象接口 + 多实现，单机零依赖</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q8 — 任务编排引擎</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — DAG 基础 + 运行时动态追加节点（add_task 带环检测，原子写盘）</p>
+  </div>
+  <div class="decision-rationale">有 DAG 才有审计链和断点续跑；动态扩展保证探索性调查的灵活性</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q9 + Q21 — 数据层与服务器角色</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> PostgreSQL + 本地文件系统（服务器仅做 Syncthing 中继 + PostgreSQL 元数据）</p>
+    <p>证据存本地 <code>cases/&lt;case-id&gt;/evidence/</code>，服务器 2C8G 20G 无法存储检材。两条数据路径：热路径用 shared/ YAML，冷路径用 PostgreSQL</p>
+  </div>
+  <div class="decision-rationale">服务器配置低只做辅助；检材几百GB，各电脑自行下载</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q10 — 安全隔离与沙箱</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项A — Docker + WSL2 Firecracker 本地分级隔离</p>
+    <p>风险分级：LOW→Docker（网络允许），MEDIUM→Docker（网络限制），HIGH→Firecracker microVM（完全隔离），UNKNOWN→默认 HIGH</p>
+  </div>
+  <div class="decision-rationale">服务器配低；笔记本是主力。断网决赛场景完整可用。HIGH 任务 KVM 不可用时直接 BLOCK，不静默降级</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q11 — 用户界面</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项B — CLI 优先 + Web Dashboard 辅助可视化</p>
+    <p>CLI (click/typer) 用于比赛速度和可脚本化；Web (FastAPI + Jinja2) 仅本地，三大视图：Case Overview / Timeline / Evidence Map</p>
+  </div>
+  <div class="decision-rationale">CTF 比赛场景 CLI 效率最高；复杂可视化走本地 Web</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q12 — 团队协作模型</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — 案件空间 + 角色权限 + DAG 任务分配 + Finding 提交/审核</p>
+    <p>每人写自己的 <code>findings/&lt;member-id&gt;.yaml</code>，杜绝写冲突。Supervisor 汇总到 answers.yaml</p>
+  </div>
+  <div class="decision-rationale">结构化分工避免冲突，Finding 级别审核合并提供质量门控</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q13 — 插件 SDK 与开发体验</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — 脚手架 CLI + 内部插件市场</p>
+    <p><code>forhacker plugin create</code> 生成标准模板结构，<code>plugin install</code> 从市场安装</p>
+  </div>
+  <div class="decision-rationale">统一插件结构保证团队协作不乱，内部市场让插件可积累、可复用、可版本管理</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q14 — 代码仓库结构</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项B — 核心 Monorepo + 插件独立 Repo（GitHub Organization: forhacker）</p>
+    <p>团队画像：5人有基础→插件owner，2人有想法→核心贡献+Code Review，3人零基础→测试/文档/报告</p>
+  </div>
+  <div class="decision-rationale">你亲手控核心框架；每个领域插件独立 repo 分配给1-2人owner，通过模板保证一致性</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q15 — 第一个迭代目标</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项C — 你+师兄做核心骨架，竞赛选手并行做取证插件 MVP</p>
+  </div>
+  <div class="decision-rationale">核心框架设计必须有足够弹性；插件团队不需要等核心完全定型</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q16 — MetaAgent 系统自我进化</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项A — 定时巡检 + 人工审核。四角色：设计调研员、持续观察员、网络操作员、自优化引擎</p>
+    <p>信息收集全自动，行动人类批准后执行，全程审计+可回滚。每日定时巡检+支持手动触发</p>
+  </div>
+  <div class="decision-rationale">追踪取证领域新工具/技术 + AI/Agent 平台本身优化方案；人类审核是安全阀</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q17 — AI产出代码质量保证</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项A — CI 铁闸 + AI Code Review（ruff format → mypy → pytest --cov≥70% → AI Code Review）</p>
+  </div>
+  <div class="decision-rationale">CI 自动执行不伤感情，零基础在报错中学习，核心 Cell 只做策略审核</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q18 — 移动端异步交互</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 分两步 — 现在用 Chrome Remote Desktop 立刻实现手机对话；后续开发企业微信/Telegram Bot 作为正式方案</p>
+  </div>
+  <div class="decision-rationale">零开发立刻可用。Bot 完成后可实现手机审批、查看 CI 结果、接收通知</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q19 — 知识在Cell之间的流动</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项A — 共享 knowledge-base repo + CI 自动汇入</p>
+    <p>每个 Cell repo 的 <code>knowledge/</code> 目录 CI 自动同步到中央 knowledge-base，全局索引可搜索</p>
+  </div>
+  <div class="decision-rationale">零人力开销、知识不碎片化</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q20 — 比赛实战流程</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> 选项B — 指挥端集中调度（Supervisor 分解任务 → 分配成员 → 汇总答案）</p>
+    <p>远程协作用 Syncthing（P2P + NAT穿透 + 中继），AI 只读写本地文件，搬运是程序的事</p>
+  </div>
+  <div class="decision-rationale">成熟方案、千万用户验证、自动处理 NAT/断线/LAN/中继全部场景</div>
+</div>
+
+<div class="decision confirmed">
+  <div class="decision-header">
+    <span class="decision-id">Q22 — 文档体系</span>
+    <span class="decision-status">✅ 已确认</span>
+  </div>
+  <div class="decision-body">
+    <p><strong>决策:</strong> VISION.md + docs/superpowers/ + tutorials/ + 每 Cell 的 TUTORIAL.md</p>
+  </div>
+  <div class="decision-rationale">每个模块零基础可上手，教育本身是产出的一部分</div>
+</div>
+
+<h2>六大设计原则</h2>
+
+<div class="summary-box">
+  <table>
+    <tr><th style="width:30px">#</th><th style="width:200px">原则</th><th>说明</th></tr>
+    <tr>
+      <td>1</td><td><strong>抽象优先，避免锁定</strong></td>
+      <td>每个基础设施组件提供抽象接口+至少两种实现（零依赖默认+可选扩展）。Agent 代码不直接导入具体后端</td>
+    </tr>
+    <tr>
+      <td>2</td><td><strong>程序做搬运，AI做判断</strong></td>
+      <td>文件同步、哈希验证、格式校验、工具执行由确定性程序处理；AI只负责解释、关联、策略、生成。AI绝不调用HTTP做协作</td>
+    </tr>
+    <tr>
+      <td>3</td><td><strong>置信度分级</strong></td>
+      <td>所有输出标注 ✅已验证 / ⚠️推测 / ❌未知。task_confidence(HIGH|MEDIUM|LOW) + evidence_confidence(verified|inferred|unknown) 双字段</td>
+    </tr>
+    <tr>
+      <td>4</td><td><strong>模块自治，核心统一</strong></td>
+      <td>每个插件独立开发，核心定义接口契约。Cell 可在边界内自由实验；核心仅通过 PR 变更</td>
+    </tr>
+    <tr>
+      <td>5</td><td><strong>知识是一等资产</strong></td>
+      <td>每个案件、每个任务、每个发现汇入共享知识库。纯 Markdown + YAML frontmatter，人类可读、git可diff、零依赖可搜索</td>
+    </tr>
+    <tr>
+      <td>6</td><td><strong>自我改进是基础设施</strong></td>
+      <td>MetaAgent 定时巡检、发现优化方案、人类审核后执行。系统运行越久能力越强</td>
+    </tr>
+  </table>
+</div>
+
+<h2>系统架构概览</h2>
+
+<div class="flow-chart">
+┌──────────────────────────────────────────────────────┐
+│                    forhacker CLI                       │
+│     case | task | plugin | meta | kb | collab         │
+├──────────────────────────────────────────────────────┤
+│  Supervisor Agent (DAG 分解 → 调度 → 汇总)             │
+│    ├── Task Engine (DAG + 动态扩展 + 环检测)           │
+│    ├── CapabilityRegistry (工具/能力注册与查询)         │
+│    └── SubAgent (子任务执行 + 生命周期管理)             │
+├────────────┬────────────┬────────────┬───────────────┤
+│  LLM 抽象层 │ MessageBus│  Plugin 系统│  Security 隔离 │
+│  (6后端)    │ (进程内)   │ (ABC+MCP)  │ (Docker+microVM)│
+├────────────┴────────────┴────────────┴───────────────┤
+│  Data Layer: PostgreSQL (冷) + shared/ YAML (热)      │
+│  Collab Layer: Syncthing (传输) + shared.py (协议)    │
+│  MetaAgent: 4角色定时巡检 + 人工审核 + 可回滚          │
+│  Knowledge Base: CI 自动汇入 + 去重 + 全局搜索         │
+└──────────────────────────────────────────────────────┘
+</div>
+
+<h2>仓库结构（GitHub Org: forhacker）</h2>
+
+<div class="summary-box">
+  <table>
+    <tr><th>仓库</th><th>负责人</th><th>说明</th></tr>
+    <tr><td><code>core/</code></td><td>你 + 2位师兄</td><td>核心框架，接口契约，CI模板</td></tr>
+    <tr><td><code>plugin-forensics/</code></td><td>2位竞赛老手</td><td>取证插件（内存、磁盘、文件分析）</td></tr>
+    <tr><td><code>plugin-pentest/</code></td><td>1老手 + 1新手</td><td>渗透测试插件</td></tr>
+    <tr><td><code>plugin-osint/</code></td><td>1中级 + 1新手</td><td>开源情报插件</td></tr>
+    <tr><td><code>plugin-ctf/</code></td><td>1新手 + AI</td><td>CTF 专项插件</td></tr>
+    <tr><td><code>knowledge-base/</code></td><td>自动化(CI)</td><td>共享知识库，CI 自动汇入</td></tr>
+    <tr><td><code>docs/</code></td><td>集体维护</td><td>中央文档</td></tr>
+  </table>
+</div>
+
+<h2>五阶段实施计划</h2>
+
+<div class="summary-box">
+  <table>
+    <tr><th>阶段</th><th>时间</th><th>预估LOC</th><th>核心交付</th></tr>
+    <tr>
+      <td><strong>Phase 1: Core Skeleton</strong></td>
+      <td>第1-3周</td>
+      <td>~2,000</td>
+      <td>LLMBackend (OpenAI+Ollama)、MessageBus、Plugin ABC、CLI基础、PostgreSQL schema、首条端到端测试</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 2: Supervisor + 首个插件</strong></td>
+      <td>第4-6周</td>
+      <td>~2,500</td>
+      <td>DAG引擎、Supervisor逻辑、forensics-memory插件、SubAgent调度、shared/协议</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 3: 协作 + 质量</strong></td>
+      <td>第7-9周</td>
+      <td>~1,200</td>
+      <td>Syncthing集成、CI模板、AI Code Review自动化、KB CI自动汇入</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 4: MetaAgent + Dashboard</strong></td>
+      <td>第10-12周</td>
+      <td>~1,500</td>
+      <td>MetaAgent四角色、Web Dashboard、审计+回滚</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 5: 市场 + 打磨</strong></td>
+      <td>第13周+</td>
+      <td>~1,000</td>
+      <td>插件市场、scaffolding CLI、沙箱隔离(Docker+Firecracker)</td>
+    </tr>
+  </table>
+</div>
+
+<h2>团队文化（非技术但同等重要）</h2>
+
+<div class="summary-box">
+  <ul>
+    <li><strong>Cell 制，不是部门制</strong> — 每个人 + AI = 一个独立生产力单元</li>
+    <li><strong>AI 是真·生产力，不是噱头</strong> — AI 使用方案本身是核心竞争力</li>
+    <li><strong>去官僚化</strong> — 靠产出说话，不依赖学校审批</li>
+    <li><strong>教育是产出的一部分</strong> — 每个模块有 TUTORIAL.md，零基础可上手</li>
+    <li><strong>遗留遗产</strong> — 文档、接口、模板均独立于平台/模型/工具链</li>
+    <li><strong>成员当小组长，AI是手下员工</strong> — 每个人管理自己的 AI 干活</li>
+  </ul>
+</div>
+
+<h2>Spec Review 完整性</h2>
+
+<div class="summary-box">
+  <table>
+    <tr><th>轮次</th><th>审查者</th><th>发现</th><th>阻塞项</th><th>重要项</th><th>结果</th></tr>
+    <tr>
+      <td>Round 1</td>
+      <td>6 reviewers (architect, red-team, edge-cases, yagni-gatekeeper, 2× exemplar-matcher)</td>
+      <td>39 raw → 31 effective</td>
+      <td>10 BLOCKING</td>
+      <td>21 IMPORTANT</td>
+      <td>全部修复 ✓</td>
+    </tr>
+    <tr>
+      <td>Round 2</td>
+      <td>相同6 reviewers</td>
+      <td>34 raw → 20 effective</td>
+      <td>8 BLOCKING</td>
+      <td>12 IMPORTANT</td>
+      <td>STOP_DEGENERATE — 全部接受 ✓</td>
+    </tr>
+  </table>
+  <p style="margin-top:0.8rem; color: var(--muted); font-size: 0.85rem;">
+    两轮审查共发现51个有效问题，全部修复。Round 2 退化检查触发（20 > 50%×31），说明审查在发现新类别而非细化旧问题——绿野项目正常现象。另外 8个 NIT（Round 1）和 13个 NIT（Round 2）记录在 Appendix，不阻塞实施。
+  </p>
+</div>
+
+</body>
+</html>

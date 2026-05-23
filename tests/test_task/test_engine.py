@@ -1,4 +1,3 @@
-
 import pytest
 
 from forhacker.task.dag import TaskNode

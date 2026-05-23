@@ -43,14 +43,18 @@ class AnthropicBackend(LLMBackend):
         tool_calls = []
         for block in content_blocks:
             if hasattr(block, "type") and block.type == "tool_use":
-                tool_calls.append({
-                    "id": getattr(block, "id", ""),
-                    "name": getattr(block, "name", ""),
-                    "arguments": getattr(block, "input", {}),
-                })
+                tool_calls.append(
+                    {
+                        "id": getattr(block, "id", ""),
+                        "name": getattr(block, "name", ""),
+                        "arguments": getattr(block, "input", {}),
+                    }
+                )
         return tool_calls if tool_calls else None
 
-    async def complete(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> LLMResponse:
+    async def complete(
+        self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any
+    ) -> LLMResponse:
         system, converted_msgs = self._convert_messages(messages)
         kwargs_anthropic: dict[str, Any] = {"max_tokens": kwargs.pop("max_tokens", 4096)}
         if system:
@@ -64,10 +68,7 @@ class AnthropicBackend(LLMBackend):
             **kwargs_anthropic,
             **kwargs,
         )
-        text = "".join(
-            block.text for block in response.content
-            if hasattr(block, "text") and block.type == "text"
-        )
+        text = "".join(block.text for block in response.content if hasattr(block, "text") and block.type == "text")
         return LLMResponse(
             text=text,
             model=response.model,
@@ -76,7 +77,9 @@ class AnthropicBackend(LLMBackend):
             tool_calls=self._extract_tool_calls(response.content),
         )
 
-    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:  # type: ignore[override]
+    async def stream(  # type: ignore[override]
+        self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any
+    ) -> AsyncIterator[str]:
         system, converted_msgs = self._convert_messages(messages)
         kwargs_anthropic: dict[str, Any] = {"max_tokens": kwargs.pop("max_tokens", 4096)}
         if system:

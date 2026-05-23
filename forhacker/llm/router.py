@@ -34,7 +34,12 @@ class SensitivityRouter:
                 return fb
         raise RuntimeError(f"No backend registered for sensitivity={sensitivity}")
 
-    async def complete(self, messages: list[Message], sensitivity: Sensitivity = "MEDIUM",
-                       tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> LLMResponse:
+    async def complete(
+        self,
+        messages: list[Message],
+        sensitivity: Sensitivity = "MEDIUM",
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
         backend = self.resolve(sensitivity)
         return await backend.complete(messages, tools=tools, **kwargs)

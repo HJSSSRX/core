@@ -82,4 +82,3 @@ def test_get_recent_metrics():
     assert "test_count" in metrics
     assert "plugin_count" in metrics
     assert "kb_entry_count" in metrics
-

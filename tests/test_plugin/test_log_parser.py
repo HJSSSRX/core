@@ -43,8 +43,7 @@ def test_parse_csv_not_found():
 def test_parse_jsonl(tmp_path):
     f = tmp_path / "events.jsonl"
     f.write_text(
-        json.dumps({"event": "login", "user": "alice"}) + "\n"
-        + json.dumps({"event": "logout", "user": "alice"}) + "\n"
+        json.dumps({"event": "login", "user": "alice"}) + "\n" + json.dumps({"event": "logout", "user": "alice"}) + "\n"
     )
     result = run_parse_jsonl(str(f))
     assert result["row_count"] == 2
@@ -116,16 +115,14 @@ def test_parse_jsonl_max_rows(tmp_path):
 
 def test_parse_iis_log_max_rows(tmp_path):
     f = tmp_path / "many_iis.log"
-    f.write_text(
-        "#Fields: date time\n"
-        + "\n".join(f"2026-01-0{i} 12:00:0{i}" for i in range(1, 8))
-    )
+    f.write_text("#Fields: date time\n" + "\n".join(f"2026-01-0{i} 12:00:0{i}" for i in range(1, 8)))
     result = run_parse_iis_log(str(f), max_rows=3)
     assert result["row_count"] == 3
 
 
 def test_parse_evtx_not_installed(tmp_path):
     from cells.log_parser.plugin import run_parse_evtx
+
     f = tmp_path / "test.evtx"
     f.write_text("dummy")
     result = run_parse_evtx(str(f))

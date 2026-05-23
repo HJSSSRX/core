@@ -3,6 +3,7 @@
 If this gate fails after 2 REFACTOR iterations, STOP. The LLMBackend
 interface must be redesigned before proceeding to implementation tasks.
 """
+
 from forhacker.llm.backend import LLMBackend, LLMResponse, Message
 
 
@@ -37,6 +38,7 @@ def test_llmresponse_carries_tool_calls():
 def test_complete_signature_accepts_tools():
     """SubAgents pass tools per spec; the ABC signature must accept them."""
     import inspect
+
     sig = inspect.signature(LLMBackend.complete)
     params = list(sig.parameters.keys())
     assert "tools" in params

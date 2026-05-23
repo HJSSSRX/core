@@ -18,7 +18,9 @@ class OpenAIBackend(LLMBackend):
     def _messages_to_openai_format(self, messages: list[Message]) -> list[dict[str, Any]]:
         return [{"role": m.role, "content": m.content} for m in messages]
 
-    async def complete(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> LLMResponse:
+    async def complete(
+        self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any
+    ) -> LLMResponse:
         response = await self._client.chat.completions.create(
             model=self._model,
             messages=self._messages_to_openai_format(messages),  # type: ignore[arg-type]
@@ -34,7 +36,9 @@ class OpenAIBackend(LLMBackend):
             tool_calls=[tc.model_dump() for tc in choice.message.tool_calls] if choice.message.tool_calls else None,
         )
 
-    async def stream(self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any) -> AsyncIterator[str]:  # type: ignore[override]
+    async def stream(  # type: ignore[override]
+        self, messages: list[Message], tools: list[dict[str, Any]] | None = None, **kwargs: Any
+    ) -> AsyncIterator[str]:
         stream = await self._client.chat.completions.create(
             model=self._model,
             messages=self._messages_to_openai_format(messages),  # type: ignore[arg-type]

@@ -26,16 +26,16 @@ jobs:
         run: uv sync --dev
 
       - name: Ruff format check
-        run: uv run ruff format --check forhacker/ tests/
+        run: uv run ruff format --check forhacker/ tests/ cells/
 
       - name: Ruff lint
-        run: uv run ruff check forhacker/ tests/
+        run: uv run ruff check forhacker/ tests/ cells/
 
       - name: Mypy type check
-        run: uv run mypy forhacker/ --ignore-missing-imports
+        run: uv run mypy forhacker/ cells/ --ignore-missing-imports --explicit-package-bases
 
       - name: Pytest with coverage
-        run: uv run pytest tests/ --cov=forhacker --cov-fail-under=70
+        run: uv run pytest tests/ --cov=forhacker --cov=cells --cov-fail-under=70
 
       - name: AI Code Review
         uses: anthropics/claude-code-action@v1

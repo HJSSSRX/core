@@ -73,12 +73,14 @@ def _list_evidence(case_id: str) -> list[dict]:
     for f in sorted(evidence_dir.rglob("*")):
         if f.is_file():
             stat = f.stat()
-            results.append({
-                "name": f.name,
-                "path": str(f.relative_to(evidence_dir)),
-                "size": stat.st_size,
-                "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-            })
+            results.append(
+                {
+                    "name": f.name,
+                    "path": str(f.relative_to(evidence_dir)),
+                    "size": stat.st_size,
+                    "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                }
+            )
     return results
 
 
@@ -92,29 +94,37 @@ async def case_overview(request: Request, case_id: str):
     dag = _read_dag(case_id)
     tasks = dag.get("tasks", [])
     findings = _read_findings(case_id)
-    return templates.TemplateResponse(request, "case_detail.html", {
-        "request": request,
-        "case_id": case_id,
-        "tasks": tasks,
-        "tasks_done": sum(1 for t in tasks if t.get("status") == "done"),
-        "tasks_running": sum(1 for t in tasks if t.get("status") == "running"),
-        "tasks_failed": sum(1 for t in tasks if t.get("status") == "failed"),
-        "findings": findings,
-        "findings_count": len(findings),
-    })
+    return templates.TemplateResponse(
+        request,
+        "case_detail.html",
+        {
+            "request": request,
+            "case_id": case_id,
+            "tasks": tasks,
+            "tasks_done": sum(1 for t in tasks if t.get("status") == "done"),
+            "tasks_running": sum(1 for t in tasks if t.get("status") == "running"),
+            "tasks_failed": sum(1 for t in tasks if t.get("status") == "failed"),
+            "findings": findings,
+            "findings_count": len(findings),
+        },
+    )
 
 
 @app.get("/kb", response_class=HTMLResponse)
 async def kb_index(request: Request, q: str = Query(default=""), tag: str = Query(default="")):
     store = KBStore(KB_DIR)
     entries = store.search(keyword=q, tags=[tag] if tag else None)
-    return templates.TemplateResponse(request, "kb.html", {
-        "request": request,
-        "entries": entries,
-        "query": q,
-        "tag_filter": tag,
-        "total": len(entries),
-    })
+    return templates.TemplateResponse(
+        request,
+        "kb.html",
+        {
+            "request": request,
+            "entries": entries,
+            "query": q,
+            "tag_filter": tag,
+            "total": len(entries),
+        },
+    )
 
 
 @app.get("/kb/{entry_id}", response_class=HTMLResponse)
@@ -123,10 +133,14 @@ async def kb_entry(request: Request, entry_id: str):
     entry = store.get(entry_id)
     if entry is None:
         return HTMLResponse("<h1>Not Found</h1>", status_code=404)
-    return templates.TemplateResponse(request, "kb_detail.html", {
-        "request": request,
-        "entry": entry,
-    })
+    return templates.TemplateResponse(
+        request,
+        "kb_detail.html",
+        {
+            "request": request,
+            "entry": entry,
+        },
+    )
 
 
 @app.get("/timeline", response_class=HTMLResponse)
@@ -134,24 +148,32 @@ async def timeline(request: Request):
     """Chronological view of findings across all cases."""
     findings = _read_all_findings()
     cases = _list_cases()
-    return templates.TemplateResponse(request, "timeline.html", {
-        "request": request,
-        "findings": findings,
-        "findings_count": len(findings),
-        "cases": cases,
-    })
+    return templates.TemplateResponse(
+        request,
+        "timeline.html",
+        {
+            "request": request,
+            "findings": findings,
+            "findings_count": len(findings),
+            "cases": cases,
+        },
+    )
 
 
 @app.get("/evidence/{case_id}", response_class=HTMLResponse)
 async def evidence_map(request: Request, case_id: str):
     """Evidence file listing for a case."""
     evidence = _list_evidence(case_id)
-    return templates.TemplateResponse(request, "evidence.html", {
-        "request": request,
-        "case_id": case_id,
-        "evidence": evidence,
-        "evidence_count": len(evidence),
-    })
+    return templates.TemplateResponse(
+        request,
+        "evidence.html",
+        {
+            "request": request,
+            "case_id": case_id,
+            "evidence": evidence,
+            "evidence_count": len(evidence),
+        },
+    )
 
 
 def _get_plugin_status() -> dict:
@@ -185,8 +207,9 @@ def _get_system_status() -> dict[str, Any]:
     status["kb_entries"] = len(list(kb_dir.glob("*.md"))) if kb_dir.exists() else 0
 
     cases_dir = SHARED_DIR / "cases"
-    status["cases"] = len([d for d in cases_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]) \
-        if cases_dir.exists() else 0
+    status["cases"] = (
+        len([d for d in cases_dir.iterdir() if d.is_dir() and not d.name.startswith(".")]) if cases_dir.exists() else 0
+    )
 
     proposals_dir = SHARED_DIR / "meta" / "proposals"
     status["proposals"] = len(list(proposals_dir.glob("*.yaml"))) if proposals_dir.exists() else 0
@@ -204,7 +227,11 @@ async def api_status():
 async def status_page(request: Request):
     """System status dashboard page."""
     status = _get_system_status()
-    return templates.TemplateResponse(request, "status.html", {
-        "request": request,
-        "status": status,
-    })
+    return templates.TemplateResponse(
+        request,
+        "status.html",
+        {
+            "request": request,
+            "status": status,
+        },
+    )

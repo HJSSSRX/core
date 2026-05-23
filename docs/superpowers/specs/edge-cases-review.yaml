@@ -1,0 +1,214 @@
+reviewer_role: edge-cases
+spec: 2026-05-21-forhacker-design.md
+round: 2
+date: 2026-05-20
+
+findings:
+  - severity: BLOCKING
+    id: EC-01
+    section: "§1.4 Plugin System — Plugin load failure"
+    summary: "Circular plugin dependency causes undefined behavior (infinite loop or stack overflow)"
+    evidence: >
+      The spec states: "if a plugin declares `dependencies: [other_plugin]` and a dependency fails,
+      the dependent plugin is also skipped." This handles the case where dependency B is absent or
+      fails to load, but it does NOT handle the case where plugin A declares a dependency on B and
+      plugin B declares a dependency on A. A naive topological-sort-based loader would either
+      infinite-loop or stack-overflow trying to resolve the mutual dependency. There is no cycle
+      detection in the dependency graph, no maximum recursion depth, and no error message defined
+      for this case. Since plugins are independently developed by separate Cells, a circular
+      dependency is a realistic configuration error that would crash the PluginManager at startup.
+    recommendation: >
+      Add cycle detection to plugin dependency resolution. When a cycle is detected, skip ALL
+      plugins in the cycle with error "circular dependency detected: A <-> B" and log them in
+      `degraded_plugins`. Document that circular dependencies are forbidden.
+
+  - severity: BLOCKING
+    id: EC-02
+    section: "§1.3 Task Engine — Supervisor logic step 2-3 + §1.4 CapabilityRegistry"
+    summary: "Empty CapabilityRegistry query result leaves Supervisor with no defined decomposition strategy"
+    evidence: >
+      Supervisor step 2: "Query CapabilityRegistry for matching tools and techniques."
+      Supervisor step 3: "Decompose into initial task DAG."
+      If the CapabilityRegistry returns an empty list (no plugins installed, or zero tools matching
+      the domain+tags for the given goal), the Supervisor has no tools to decompose with. The spec
+      does not define what happens: does the Supervisor produce an empty DAG? Does it return an
+      error? Does it attempt a best-effort decomposition using only the LLM's general knowledge
+      with no tools to execute? This is not a rare edge case — it occurs on first install before
+      any plugins are added, and whenever a new investigation domain has no matching plugin.
+      The system must degrade explicitly rather than silently producing a zero-task DAG.
+    recommendation: >
+      Define the Supervisor behavior when CapabilityRegistry.query() returns []:
+      1. If no plugins are loaded at all, Supervisor returns an error: "No plugins available.
+         Install at least one plugin via `forhacker plugin install <name>`."
+      2. If plugins exist but none match the domain, Supervisor produces a proposed DAG with
+         tasks whose `assigned_to` is `pending_capability` — marking them as requiring a new
+         or updated plugin. The human operator sees these and can decide to build the missing
+         capability or re-scope the goal.
+
+  - severity: BLOCKING
+    id: EC-03
+    section: "§1.3 Task Engine — Dynamic addition"
+    summary: "Dynamic add_task can introduce cycles into an already-running DAG"
+    evidence: >
+      The spec says: "Agents can call `engine.add_task(parent_id, new_task)` at runtime when new
+      leads emerge" with "automatic dependency resolution." T2 tests "detect cycle" as a DAG
+      operation, but the spec does not explicitly require cycle detection on every dynamic
+      add_task call. A sub-agent could create task C that depends on task A, while task A already
+      transitively depends on task B which depends on C — introducing a cycle that did not exist
+      in the initial DAG. Without runtime cycle prevention, the subsequent topological sort would
+      either infinite-loop or throw an unhandled exception, crashing the task engine mid-investigation
+      and orphaning all in-flight tasks.
+    recommendation: >
+      Specify that `engine.add_task()` MUST run a cycle check (DFS from new_task through its
+      dependency chain) before inserting the node. If adding the task would create a cycle,
+      reject the addition with error "cannot add task <id>: would create a cycle via <path>"
+      and log to audit_log. The calling agent receives the rejection and must reformulate
+      the sub-task without the cyclic dependency.
+
+  - severity: IMPORTANT
+    id: EC-04
+    section: "§3.2 Evidence Storage — evidence_index"
+    summary: "Evidence index accumulates orphan entries when files are deleted from disk"
+    evidence: >
+      The `evidence_index` table tracks `(path, sha256, integrity)` per case. `forhacker evidence
+      verify` re-scans and reports integrity status. However, when an evidence file is deleted
+      from `cases/<case-id>/evidence/` (disk cleanup, manual removal, case archival), the index
+      entry persists. The verify command would flag it — but the spec's hash mismatch protocol
+      (§3.2) treats ALL integrity failures uniformly: "CRITICAL alert, integrity=failed, task
+      blocked." A deleted file is qualitatively different from a tampered file and should not
+      trigger the same security-alert escalation. Over months of operation, the index will
+      accumulate dead entries with no cleanup mechanism.
+    recommendation: >
+      Distinguish "file not found" (ENOENT) from "hash mismatch" in integrity verification.
+      File-not-found entries should be marked `integrity=missing` (not `failed`), should NOT
+      raise a CRITICAL alert (use WARNING instead), and should be eligible for garbage
+      collection via `forhacker evidence prune <case-id>` which removes missing entries
+      after a configurable retention period.
+
+  - severity: IMPORTANT
+    id: EC-05
+    section: "§5.2 Shared State Protocol — Rule 6"
+    summary: "Syncthing conflict files are detected but no resolution procedure is specified"
+    evidence: >
+      Rule 6: "`forhacker collab status` scans for `*.sync-conflict*` files and alerts if any
+      are found." This provides detection but no action. The operator knows a conflict exists
+      but has no prescribed resolution path. Per-member findings files eliminate the primary
+      conflict source, but conflicts can still occur in `status.yaml`, `dag_state.yaml`, or
+      `answers.yaml` (e.g., two Supervisors running simultaneously due to a partition, or
+      a manual edit colliding with a Supervisor write). Without a resolution procedure,
+      the system may continue operating on stale or inconsistent state while the conflict
+      file sits unaddressed.
+    recommendation: >
+      Add a conflict resolution command: `forhacker collab resolve <conflict-file>` that:
+      1. Displays a diff between the base file and the conflict file.
+      2. Offers three choices: (a) keep local version, (b) accept remote version,
+         (c) manual merge via $EDITOR.
+      3. After resolution, deletes the `*.sync-conflict*` file and re-validates the YAML schema.
+      Document that `forhacker collab status` exits with code 1 when conflicts exist, so CI
+      can block PRs on unresolved conflicts.
+
+  - severity: IMPORTANT
+    id: EC-06
+    section: "§3.1 PostgreSQL degraded mode — reconciliation"
+    summary: "Reconciliation sync direction is one-way (shared/ → PG); data written only to PostgreSQL before failure may be lost"
+    evidence: >
+      The spec states: "When PostgreSQL connectivity is restored, a reconciliation sync merges
+      shared/ state into the database." The direction is shared/ → PostgreSQL. However, if
+      PostgreSQL was the primary operational store before failure (e.g., agent heartbeats,
+      audit_log entries written directly to PG), and the failure occurs before those entries
+      are reflected in shared/, those PG-only records could be overwritten or lost when
+      shared/ state is merged on top of them. The spec does not clarify whether reconciliation
+      is a true merge (INSERT new, UPDATE existing, never DELETE) or a destructive overwrite
+      (shared/ replaces PG state for overlapping keys). Without this clarity, implementors
+      may choose a destructive sync that silently drops PG-originated data.
+    recommendation: >
+      Specify reconciliation as an upsert strategy:
+      - For each record type, define the merge key (e.g., task_id, finding_id).
+      - Records in shared/ that don't exist in PG are INSERTed.
+      - Records in shared/ that exist in PG compare `updated_at` timestamps; the newer wins.
+      - Records in PG that don't exist in shared/ are PRESERVED (never deleted during reconciliation).
+      - Log all merge actions (inserts, updates, conflicts) to a `reconciliation_log` table.
+      This ensures PG-only data (like audit_log history) survives reconciliation intact.
+
+  - severity: IMPORTANT
+    id: EC-07
+    section: "§7 Knowledge Base Flow — Operational findings pipeline"
+    summary: "KB pipeline has no defined behavior for case lifecycle changes after ingestion"
+    evidence: >
+      The operational findings pipeline "queries the PostgreSQL `findings` table for completed
+      cases, transforms findings into the Markdown + YAML frontmatter format, writes them to the
+      knowledge-base repo's ingestion queue." Two unhandled lifecycle edges:
+      (a) A case marked `completed` gets ingested, then is later reopened (status changes back to
+          `active`). Its findings are already in the KB. Should they be removed? Marked stale?
+      (b) A finding is ingested, then the original finding in PostgreSQL is updated (e.g.,
+          confidence changed from `inferred` to `verified` after human review). Does the KB
+          re-ingest and update, or is the original KB entry frozen?
+      Without these rules, the KB accumulates entries that may contradict the live case data.
+    recommendation: >
+      Define KB entry lifecycle rules:
+      1. Each KB entry carries the source `finding_id` and `case_id` in its YAML frontmatter.
+      2. Re-ingestion of the same `finding_id` updates the existing KB entry (upsert by finding_id).
+      3. When a case is reopened, its KB entries are NOT removed but are marked with
+         `status: case_reopened` in frontmatter, signaling they may be outdated.
+      4. The KB search UI filters out entries with `status: case_reopened` by default, with
+         a `--include-stale` flag to show them.
+
+  - severity: NIT
+    id: EC-08
+    section: "§4 Security Isolation — Plugin risk declaration"
+    summary: "Plugin with an empty risk_levels dict causes ALL tools to default to HIGH"
+    evidence: >
+      The spec says: "Unregistered tool names default to HIGH with a warning." A plugin with
+      `risk_levels: {}` (empty dict) means every tool it registers is "unregistered" in the risk
+      mapping, so ALL tools default to HIGH with a warning per tool. For a plugin that only
+      provides safe operations (e.g., hash computation, string search, metadata extraction),
+      this default is overly restrictive and would force Firecracker isolation (or BLOCK if
+      KVM unavailable) for tasks that should run at LOW. The spec does not distinguish "plugin
+      author forgot to fill risk_levels" from "plugin explicitly marked some tools but not others."
+    recommendation: >
+      Add a PluginManager load-time validation: if a plugin's `risk_levels` dict is empty or
+      covers fewer than 50% of its registered tool names, emit a distinct WARNING at load time:
+      "Plugin '<name>' has incomplete risk_levels coverage (M of N tools unregistered). All
+      unregistered tools will default to HIGH." This gives plugin authors clear feedback at
+      development time. Also consider a `--force-risk-level=LOW` flag in the plugin manifest
+      for plugins that are provably safe (opt-in, not automatic).
+
+  - severity: NIT
+    id: EC-09
+    section: "§6.2 Web Dashboard"
+    summary: "Dashboard has no defined empty-state behavior for zero cases, tasks, or agents"
+    evidence: >
+      The dashboard describes three views (Case Overview, Timeline, Evidence Map) but assumes
+      data exists. When the system is first installed — zero cases, zero tasks, zero agents
+      registered, zero findings — the dashboard should degrade gracefully with clear empty-state
+      messaging (e.g., "No cases yet. Create one with `forhacker case create`") rather than
+      rendering broken charts, zero-division percentages, or blank pages. Similarly, the
+      Evidence Map view has no fallback when a case has zero evidence files indexed.
+    recommendation: >
+      Specify empty-state UI for each dashboard view: (a) Case Overview with zero cases shows
+      quickstart CLI commands, (b) Timeline with zero findings shows "No findings recorded,"
+      (c) Evidence Map with zero artifacts shows "No evidence indexed for this case."
+      The confidence distribution chart should handle the zero-findings case without
+      division-by-zero on percentage calculations.
+
+  - severity: NIT
+    id: EC-10
+    section: "§1.3 Task Engine — Supervisor logic step 4"
+    summary: "dag_state.yaml checkpoint write is not atomic; crash mid-write produces corrupted YAML"
+    evidence: >
+      Supervisor step 4: "Persist DAG state to `shared/cases/<id>/dag_state.yaml` (checkpoint
+      before dispatch)." The MetaAgent section (§2.3) explicitly calls out atomic writes: "new
+      files written to staging directory then atomically swapped." But the DAG checkpoint has
+      no such guarantee. If the Supervisor process crashes mid-write (power loss, OOM kill,
+      unhandled exception during YAML serialization of a large DAG), the `dag_state.yaml` file
+      is left in a partially-written state. On restart, the Supervisor's crash recovery (§1.3)
+      reads this file and would fail to parse it — leaving no recovery path except manual
+      deletion of the corrupted file and loss of all in-flight DAG state.
+    recommendation: >
+      Specify that dag_state.yaml writes use the same atomic pattern as MetaAgent: write to
+      `dag_state.yaml.tmp`, then `os.replace()` (atomic on POSIX; on Windows, use
+      `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`). On recovery read failure, attempt to
+      load `dag_state.yaml.tmp` as a secondary recovery path, and log a WARNING that the
+      primary checkpoint was corrupted.
+
+NO_BLOCKING_ISSUES: false

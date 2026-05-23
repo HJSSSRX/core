@@ -6,8 +6,6 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from cells.browser_forensics.plugin import (
     BrowserForensicsPlugin,
     _chrome_time,
@@ -24,8 +22,7 @@ def _make_chrome_history_db() -> str:
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     conn = sqlite3.connect(tmp.name)
     conn.execute(
-        "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, "
-        "visit_count INTEGER, last_visit_time INTEGER)"
+        "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, last_visit_time INTEGER)"
     )
     # last_visit_time: 13300000000000000 ~= 2022-06-15
     conn.execute(
@@ -88,8 +85,17 @@ def _make_downloads_db() -> str:
     )
     conn.execute(
         "INSERT INTO downloads VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (1, "C:\\Downloads\\setup.exe", "https://example.com/dl", 1024000, 1024000,
-         13300000000000000, 13300000000000001, 1, 0),
+        (
+            1,
+            "C:\\Downloads\\setup.exe",
+            "https://example.com/dl",
+            1024000,
+            1024000,
+            13300000000000000,
+            13300000000000001,
+            1,
+            0,
+        ),
     )
     conn.commit()
     conn.close()
@@ -112,10 +118,18 @@ def _make_bookmarks_json():
                 "type": "folder",
                 "name": "Other Bookmarks",
                 "children": [
-                    {"type": "folder", "name": "Work",
-                     "children": [
-                         {"type": "url", "name": "Jira", "url": "https://jira.example.com", "date_added": "13300000000000001"},
-                     ]},
+                    {
+                        "type": "folder",
+                        "name": "Work",
+                        "children": [
+                            {
+                                "type": "url",
+                                "name": "Jira",
+                                "url": "https://jira.example.com",
+                                "date_added": "13300000000000001",
+                            },
+                        ],
+                    },
                 ],
             },
         }
@@ -124,6 +138,7 @@ def _make_bookmarks_json():
 
 
 # === Plugin Registration ===
+
 
 def test_plugin_registration():
     plugin = BrowserForensicsPlugin()
@@ -138,6 +153,7 @@ def test_plugin_registration():
 
 
 # === Chrome Time Conversion ===
+
 
 def test_chrome_time_valid():
     # 13300000000000000 microseconds from 1601-01-01
@@ -156,11 +172,12 @@ def test_chrome_time_negative():
 
 
 def test_chrome_time_overflow():
-    result = _chrome_time(10 ** 30)
+    result = _chrome_time(10**30)
     assert isinstance(result, str)
 
 
 # === Chrome History ===
+
 
 def test_chrome_history_basic():
     db_path = _make_chrome_history_db()
@@ -186,6 +203,7 @@ def test_chrome_history_invalid_db(tmp_path):
 
 # === Firefox History ===
 
+
 def test_firefox_history_basic():
     db_path = _make_firefox_history_db()
     result = run_firefox_history(db_path)
@@ -200,6 +218,7 @@ def test_firefox_history_not_found():
 
 
 # === Chrome Cookies ===
+
 
 def test_chrome_cookies_basic():
     db_path = _make_cookies_db()
@@ -217,6 +236,7 @@ def test_chrome_cookies_not_found():
 
 # === Browser Downloads ===
 
+
 def test_browser_downloads_basic():
     db_path = _make_downloads_db()
     result = run_browser_downloads(db_path)
@@ -231,6 +251,7 @@ def test_browser_downloads_not_found():
 
 
 # === Extract Bookmarks ===
+
 
 def test_extract_bookmarks_basic():
     data = _make_bookmarks_json()

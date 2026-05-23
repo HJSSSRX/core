@@ -44,7 +44,7 @@ async def test_complete_normal():
 
 @pytest.mark.asyncio
 async def test_retry_on_timeout_then_succeed():
-    backend = FakeBackend(responses=[asyncio.TimeoutError(), _ok_response()])
+    backend = FakeBackend(responses=[TimeoutError(), _ok_response()])
     rw = ResilienceWrapper(max_retries=3, timeout=1.0)
     resp = await rw.complete(backend, _msg())
     assert resp.text == "ok"
@@ -53,7 +53,7 @@ async def test_retry_on_timeout_then_succeed():
 
 @pytest.mark.asyncio
 async def test_all_retries_exhausted():
-    backend = FakeBackend(responses=[asyncio.TimeoutError()] * 4)
+    backend = FakeBackend(responses=[TimeoutError()] * 4)
     rw = ResilienceWrapper(max_retries=3, timeout=0.1)
     with pytest.raises(TimeoutError):
         await rw.complete(backend, _msg())
@@ -108,7 +108,7 @@ async def test_circuit_breaker_open_immediate():
 
 @pytest.mark.asyncio
 async def test_circuit_breaker_opens_after_threshold():
-    backend = FakeBackend(responses=[asyncio.TimeoutError()] * 4)
+    backend = FakeBackend(responses=[TimeoutError()] * 4)
     rw = ResilienceWrapper(max_retries=1, circuit_threshold=2, circuit_cooldown=60.0)
     # First call: retry exhausted, consecutive_failures goes to 1
     with pytest.raises(TimeoutError):
@@ -127,7 +127,7 @@ async def test_circuit_closed_after_cooldown():
     rw = ResilienceWrapper(circuit_threshold=1, circuit_cooldown=0.01)
     backend = FakeBackend(responses=[_ok_response()])
     # First, open the circuit
-    fail_backend = FakeBackend(responses=[asyncio.TimeoutError()] * 2)
+    fail_backend = FakeBackend(responses=[TimeoutError()] * 2)
     rw._max_retries = 1
     rw._circuit_threshold = 1
     with pytest.raises(TimeoutError):

@@ -53,16 +53,21 @@ def read_dag_checkpoint(case_dir: Path) -> list[dict[str, Any]]:
 
 def write_heartbeat(case_dir: Path, agent_id: str):
     import datetime
+
     path = case_dir / "agents" / agent_id / "heartbeat.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
-    _write_yaml_atomic(path, {
-        "agent_id": agent_id,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    })
+    _write_yaml_atomic(
+        path,
+        {
+            "agent_id": agent_id,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        },
+    )
 
 
 def check_heartbeat(case_dir: Path, agent_id: str, staleness_seconds: float = 90.0) -> bool:
     import datetime
+
     path = case_dir / "agents" / agent_id / "heartbeat.yaml"
     if not path.exists():
         return False

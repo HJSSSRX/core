@@ -30,6 +30,7 @@ class SyncthingHealth:
         """Query Syncthing REST API for connection and sync status."""
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(f"{self._api_url}/rest/system/status")
                 data = resp.json()
@@ -51,12 +52,15 @@ class SyncthingHealth:
         """Trigger Syncthing to rescan a folder for changes."""
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     f"{self._api_url}/rest/db/scan",
                     params={"folder": folder_id},
                 )
-                return {"status": "ok" if resp.status_code == 200 else "error",
-                        "message": f"Rescan triggered for '{folder_id}'"}
+                return {
+                    "status": "ok" if resp.status_code == 200 else "error",
+                    "message": f"Rescan triggered for '{folder_id}'",
+                }
         except Exception as e:
             return {"status": "offline", "message": str(e)}

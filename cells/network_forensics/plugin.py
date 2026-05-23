@@ -8,7 +8,7 @@ import re
 import socket
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from forhacker.plugin.base import BasePlugin, Tool
 
@@ -27,20 +27,41 @@ class NetworkForensicsPlugin(BasePlugin):
 
     def register_tools(self) -> list[Tool]:
         return [
-            Tool(name="pcap_summary", description="Summarize a PCAP file — protocol breakdown, top talkers",
-                 domain="network", risk_level="LOW"),
-            Tool(name="dns_lookup", description="Resolve hostname to IP addresses (A/AAAA records)",
-                 domain="network", risk_level="LOW"),
-            Tool(name="http_header_parse", description="Parse HTTP request/response headers from raw text",
-                 domain="network", risk_level="LOW"),
-            Tool(name="ip_geo_lookup", description="Stub: GeoIP lookup (requires MaxMind database)",
-                 domain="network", risk_level="MEDIUM"),
-            Tool(name="connection_graph", description="Extract TCP/UDP connection pairs from netstat output",
-                 domain="network", risk_level="MEDIUM"),
+            Tool(
+                name="pcap_summary",
+                description="Summarize a PCAP file — protocol breakdown, top talkers",
+                domain="network",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="dns_lookup",
+                description="Resolve hostname to IP addresses (A/AAAA records)",
+                domain="network",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="http_header_parse",
+                description="Parse HTTP request/response headers from raw text",
+                domain="network",
+                risk_level="LOW",
+            ),
+            Tool(
+                name="ip_geo_lookup",
+                description="Stub: GeoIP lookup (requires MaxMind database)",
+                domain="network",
+                risk_level="MEDIUM",
+            ),
+            Tool(
+                name="connection_graph",
+                description="Extract TCP/UDP connection pairs from netstat output",
+                domain="network",
+                risk_level="MEDIUM",
+            ),
         ]
 
 
 # === Tool Implementations ===
+
 
 def run_pcap_summary(target: str) -> dict[str, Any]:
     """Parse basic PCAP structure — protocol counts, top source/dest IPs."""
@@ -60,7 +81,7 @@ def run_pcap_summary(target: str) -> dict[str, Any]:
     magic2 = int.from_bytes(data[:4], "big")
     if magic == 0xA1B2C3D4:
         result["format"] = "pcap (little-endian)"
-        endian = "little"
+        endian: Literal["little", "big"] = "little"
     elif magic2 == 0xA1B2C3D4:
         result["format"] = "pcap (big-endian)"
         endian = "big"
@@ -79,7 +100,7 @@ def run_pcap_summary(target: str) -> dict[str, Any]:
     packet_count = 0
     offset = 24
     while offset + 16 <= len(data):
-        incl_len = int.from_bytes(data[offset + 8:offset + 12], endian)
+        incl_len = int.from_bytes(data[offset + 8 : offset + 12], endian)
         packet_count += 1
         offset += 16 + incl_len
         if offset > len(data):
@@ -160,7 +181,7 @@ def run_ip_geo_lookup(ip_address: str) -> dict[str, Any]:
         "ip": ip_address,
         "status": "stub",
         "note": "GeoIP lookup requires MaxMind GeoLite2 database. "
-                "Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
+        "Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
     }
 
 
