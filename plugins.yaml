@@ -1,0 +1,49 @@
+plugins:
+- name: forensics-core
+  version: 0.1.0
+  domain: forensics
+  description: File hashing, PE parsing, YARA scanning, Volatility 3 stub
+  repo_url: https://github.com/HJSSSRX/plugin-forensics-core
+  owner_cell: HJSSSRX
+- name: file-analyzer
+  version: 0.1.0
+  domain: forensics
+  description: File metadata, entropy scan, hex dump
+  repo_url: https://github.com/HJSSSRX/plugin-file-analyzer
+  owner_cell: HJSSSRX
+- name: log-parser
+  version: 0.1.0
+  domain: forensics
+  description: CSV, JSONL, IIS W3C, Windows EVTX log parsing
+  repo_url: https://github.com/HJSSSRX/plugin-log-parser
+  owner_cell: HJSSSRX
+- name: network-forensics
+  version: 0.1.0
+  domain: network
+  description: PCAP summary, DNS lookup, HTTP header analysis, netstat
+  repo_url: https://github.com/HJSSSRX/plugin-network-forensics
+  owner_cell: HJSSSRX
+- name: registry-analyzer
+  version: 0.1.0
+  domain: forensics
+  description: Windows registry parsing, startup entries, USB history, software inventory
+  repo_url: https://github.com/HJSSSRX/plugin-registry-analyzer
+  owner_cell: HJSSSRX
+- name: browser-forensics
+  version: 0.1.0
+  domain: forensics
+  description: Chrome/Firefox history, cookies, downloads, bookmarks
+  repo_url: https://github.com/HJSSSRX/plugin-browser-forensics
+  owner_cell: HJSSSRX
+- name: email-forensics
+  version: 0.1.0
+  domain: forensics
+  description: EML parsing, header analysis, phishing detection, mbox
+  repo_url: https://github.com/HJSSSRX/plugin-email-forensics
+  owner_cell: HJSSSRX
+- name: timeline-analyzer
+  version: 0.1.0
+  domain: forensics
+  description: Event correlation, gap detection, dedup, CSV export
+  repo_url: https://github.com/HJSSSRX/plugin-timeline-analyzer
+  owner_cell: HJSSSRX
