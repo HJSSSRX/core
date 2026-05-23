@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Firecracker microVM sandbox — Linux-only, requires KVM.
 
 Firecracker provides stronger isolation than Docker by running each workload

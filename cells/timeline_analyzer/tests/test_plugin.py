@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """timeline-analyzer Cell — tests."""
 
 from plugin import TimelineAnalyzerPlugin

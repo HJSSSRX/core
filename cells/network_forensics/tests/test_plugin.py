@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """network-forensics Cell — tests."""
 
 from plugin import NetworkForensicsPlugin

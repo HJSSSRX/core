@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for Browser Forensics Cell plugin tools."""
 
 import datetime

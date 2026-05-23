@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Browser Forensics Cell — analyze Chrome/Firefox history, cookies, downloads, bookmarks.
 
 All tools use Python stdlib (sqlite3, json) — zero external dependencies.

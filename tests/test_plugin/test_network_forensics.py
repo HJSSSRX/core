@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for the Network Forensics Cell plugin tools."""
 
 import tempfile

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for Timeline Analyzer Cell plugin tools."""
 
 import json

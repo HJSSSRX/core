@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Forensics Core Cell — built-in forensics tools with zero external dependencies.
 
 This is the first Cell plugin for ForHacker. It demonstrates the plugin contract

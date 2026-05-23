@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Windows Registry Analyzer Cell — forensic analysis of .reg exports and registry hives.
 
 Tools for parsing Windows registry exports (.reg files), extracting forensic artifacts:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for collab CLI commands — status, conflicts, resolve, syncthing, sync."""
 
 from pathlib import Path

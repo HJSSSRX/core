@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.data.models import Agent, Case, EvidenceIndex, Finding
 
 

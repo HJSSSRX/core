@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """log-parser Cell — test configuration."""
 
 import sys

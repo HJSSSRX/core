@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """email-forensics Cell — test configuration."""
 
 import sys

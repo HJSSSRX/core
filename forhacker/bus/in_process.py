@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable, Coroutine
 
 from forhacker.bus.message_bus import MessageBus

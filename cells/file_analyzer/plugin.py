@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """File Analyzer Cell — file type detection, entropy, and timeline tools."""
 
 import math

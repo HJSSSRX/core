@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Network Forensics Cell — packet capture analysis and network intelligence tools.
 
 Built for ForHacker. All tools use pure Python with zero external dependencies

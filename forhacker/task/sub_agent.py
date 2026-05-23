@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -13,7 +15,7 @@ class SubAgentLifecycle(Enum):
     FAILED = "failed"
 
 
-@dataclass(slots=True)
+@dataclass
 class SubAgentContext:
     task_id: str
     case_id: str
@@ -24,7 +26,7 @@ class SubAgentContext:
     config: dict = field(default_factory=dict)
 
 
-@dataclass(slots=True)
+@dataclass
 class SubAgentResult:
     findings: list[dict[str, Any]]
     confidence: str  # HIGH | MEDIUM | LOW (task_confidence)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.collab.shared import read_dag_checkpoint, read_findings, write_dag_checkpoint, write_finding
 
 

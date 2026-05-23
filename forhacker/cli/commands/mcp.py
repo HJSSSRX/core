@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """MCP CLI — start the Model Context Protocol server for AI client integration."""
 
 import click

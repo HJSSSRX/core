@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for case CLI commands — create, status, plugins, run."""
 
 from click.testing import CliRunner
@@ -74,6 +76,8 @@ class TestCasePlugins:
         cells_dir.mkdir(parents=True)
         # Create a minimal plugin
         plugin_code = """
+from __future__ import annotations
+
 from forhacker.plugin.base import BasePlugin, Tool
 
 class TestCellPlugin(BasePlugin):
@@ -118,6 +122,8 @@ class TestCaseRun:
         cells_dir = tmp_path / "cells" / "memcell"
         cells_dir.mkdir(parents=True)
         plugin_code = """
+from __future__ import annotations
+
 from forhacker.plugin.base import BasePlugin, Tool
 
 class MemCellPlugin(BasePlugin):

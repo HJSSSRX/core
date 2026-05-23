@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """browser-forensics Cell — tests."""
 
 from plugin import BrowserForensicsPlugin

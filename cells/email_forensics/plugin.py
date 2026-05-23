@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Email Forensics Cell — parse .eml files, analyze headers, detect phishing, parse mbox.
 
 All tools use Python stdlib (email, mailbox, hashlib) — zero external dependencies.

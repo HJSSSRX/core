@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Literal
 
 from forhacker.llm.backend import LLMBackend, LLMResponse, Message

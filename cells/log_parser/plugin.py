@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Log Parser Cell — parse CSV, JSON-lines, IIS, and Windows Event logs."""
 
 import csv

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Unified exception hierarchy for ForHacker.
 
 All domain exceptions inherit from ForHackerError, enabling the CLI to

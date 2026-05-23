@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.collab.shared import check_heartbeat, write_heartbeat
 
 

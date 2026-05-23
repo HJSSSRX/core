@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for evidence CLI commands — verify, purge-orphans."""
 
 import hashlib

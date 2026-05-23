@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for MCP Server — JSON-RPC 2.0 over stdio transport."""
 
 import json

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.kb.entry import KBEntry
 from forhacker.kb.store import KBStore
 

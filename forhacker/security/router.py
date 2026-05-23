@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 class IsolationRouter:
     def __init__(self, kvm_available: bool = False):
         self._kvm_available = kvm_available

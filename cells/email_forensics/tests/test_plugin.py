@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """email-forensics Cell — tests."""
 
 from plugin import EmailForensicsPlugin

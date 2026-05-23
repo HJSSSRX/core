@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.llm.backend import LLMBackend, LLMResponse
 from forhacker.llm.router import SensitivityRouter
 

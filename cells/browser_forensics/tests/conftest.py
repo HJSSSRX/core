@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """browser-forensics Cell — test configuration."""
 
 import sys

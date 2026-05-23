@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for meta CLI commands — scan, proposals, sources, review, watchdog, verify, rollback, snapshots."""
 
 from pathlib import Path

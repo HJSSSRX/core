@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tests for KB CLI commands — search, add, list, show, delete."""
 
 from click.testing import CliRunner

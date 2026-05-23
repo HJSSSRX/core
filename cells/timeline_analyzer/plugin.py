@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Timeline Analyzer Cell — correlate, deduplicate, and analyze timestamped forensic events.
 
 Pure Python stdlib — zero external dependencies.

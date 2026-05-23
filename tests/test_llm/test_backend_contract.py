@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """GATE test: validate LLMBackend contract across all planned backends.
 
 If this gate fails after 2 REFACTOR iterations, STOP. The LLMBackend

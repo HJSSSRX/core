@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """MCP Server — exposes forhacker Cell tools as Model Context Protocol tools.
 
 Implements the JSON-RPC 2.0 transport over stdio for integration with

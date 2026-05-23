@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """MetaAgent scheduler — periodic scan→evaluate→propose→audit→introspect loop."""
 
 import logging

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """file-analyzer Cell — test configuration."""
 
 import sys

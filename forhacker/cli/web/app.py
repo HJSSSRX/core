@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -12,6 +15,14 @@ from forhacker.kb.store import KBStore
 
 app = FastAPI(title="ForHacker Dashboard", docs_url=None, redoc_url=None)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def _safe_json(value: Any) -> str:
+    """Serialize a value to JSON, handling non-serializable types gracefully."""
+    return json.dumps(value, default=str, indent=2)
+
+
+templates.env.filters["safe_json"] = _safe_json
 
 SHARED_DIR = Path("shared")
 KB_DIR = SHARED_DIR / "kb"

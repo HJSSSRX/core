@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.meta.evaluator import Evaluator, Proposal
 from forhacker.meta.sources import DEFAULT_SOURCES
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """forensics-core Cell — tests."""
 
 from plugin import ForensicsCorePlugin

@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Literal
 
 
-@dataclass(slots=True)
+@dataclass
 class Message:
     role: Literal["system", "user", "assistant", "tool"]
     content: str
 
 
-@dataclass(slots=True)
+@dataclass
 class LLMResponse:
     text: str
     model: str

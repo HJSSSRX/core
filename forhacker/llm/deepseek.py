@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.llm.openai import OpenAIBackend
 
 

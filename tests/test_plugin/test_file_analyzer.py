@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cells.file_analyzer.plugin import (
     FileAnalyzerPlugin,
     run_calculate_entropy,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.plugin.base import Tool
 from forhacker.task.capability import CapabilityRegistry
 

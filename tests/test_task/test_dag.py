@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.task.dag import DAG, AddTaskResult, TaskNode
 
 

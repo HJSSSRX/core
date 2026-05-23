@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from forhacker.collab.syncthing import check_conflicts, resolve_conflict
 
 
