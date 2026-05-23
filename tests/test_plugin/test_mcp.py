@@ -244,6 +244,22 @@ class TestHandleRequest:
         response = server._handle_request(request)
         assert len(response["result"]["resources"]) == 1
 
+    def test_resources_read(self, server):
+        server.register_resource("uri://test", "Test", "text/plain", "hello world")
+        request = {"jsonrpc": "2.0", "id": 8, "method": "resources/read", "params": {"uri": "uri://test"}}
+        response = server._handle_request(request)
+        assert response["id"] == 8
+        contents = response["result"]["contents"]
+        assert len(contents) == 1
+        assert contents[0]["uri"] == "uri://test"
+        assert contents[0]["text"] == "hello world"
+
+    def test_resources_read_not_found(self, server):
+        request = {"jsonrpc": "2.0", "id": 9, "method": "resources/read", "params": {"uri": "kb://nonexistent"}}
+        response = server._handle_request(request)
+        assert response["error"]["code"] == -32002
+        assert "not found" in response["error"]["message"]
+
     def test_ping(self, server):
         request = {"jsonrpc": "2.0", "id": 6, "method": "ping", "params": {}}
         response = server._handle_request(request)

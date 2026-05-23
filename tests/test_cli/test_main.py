@@ -148,3 +148,16 @@ def test_system_env():
     result = runner.invoke(cli, ["system", "env"])
     assert result.exit_code == 0
     assert "Python" in result.output
+
+
+def test_cli_debug_flag():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--debug", "system", "status"])
+    assert result.exit_code == 0
+    assert "Plugins" in result.output
+
+
+def test_cli_short_debug_flag():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["-d", "kb", "list"])
+    assert result.exit_code == 0

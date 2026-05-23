@@ -140,8 +140,8 @@ class IntrospectionAgent(PlatformIntrospection):
 
         rel = str(path.relative_to(root))
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith("_"):
-                if not self._is_used(tree, node.name):
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("_") and not node.name.startswith("__"):
+                if not self._is_used(tree, node.name) and not self._is_override_method(node.name):
                     issues.append(
                         CodeIssue(
                             file=rel,
@@ -152,6 +152,43 @@ class IntrospectionAgent(PlatformIntrospection):
                         )
                     )
         return issues
+
+    @staticmethod
+    def _is_override_method(name: str) -> bool:
+        """Filter out Python data-model methods that are called by the runtime, not user code."""
+        return name in (
+            "__init__",
+            "__new__",
+            "__del__",
+            "__repr__",
+            "__str__",
+            "__hash__",
+            "__eq__",
+            "__ne__",
+            "__lt__",
+            "__le__",
+            "__gt__",
+            "__ge__",
+            "__bool__",
+            "__len__",
+            "__iter__",
+            "__next__",
+            "__contains__",
+            "__getitem__",
+            "__setitem__",
+            "__delitem__",
+            "__enter__",
+            "__exit__",
+            "__aenter__",
+            "__aexit__",
+            "__await__",
+            "__aiter__",
+            "__anext__",
+            "__call__",
+            "__getattr__",
+            "__setattr__",
+            "__delattr__",
+        )
 
     def _is_used(self, tree: ast.AST, name: str) -> bool:
         for node in ast.walk(tree):

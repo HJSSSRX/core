@@ -173,6 +173,25 @@ class MCPServer:
                 "result": {"resources": self.list_resources()},
             }
 
+        if method == "resources/read":
+            uri = params.get("uri", "")
+            content = getattr(self, f"_resource_{hash(uri) % 10000}", None)
+            if content is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {"code": -32002, "message": f"Resource not found: {uri}"},
+                }
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "contents": [
+                        {"uri": uri, "text": content},
+                    ]
+                },
+            }
+
         if method == "ping":
             return {
                 "jsonrpc": "2.0",
